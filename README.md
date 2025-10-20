@@ -64,3 +64,19 @@ Kustomisasi kategori transaksi — tambahkan, ubah, atau hapus sesuai preferensi
 | ⚙️ Zulfikri Anwar | 231402110 |
 
 </div>
+
+---
+
+## 🧱 Teknologi yang Digunakan
+
+<div align="center">
+
+| Komponen | Teknologi |
+|-----------|------------|
+| **Framework** | Flutter |
+| **Bahasa Pemrograman** | Dart |
+| **IDE** | Visual Studio Code / Android Studio |
+| **API** | Exchange Rate API (Real-Time Currency) |
+| **Database** | SQLite / Hive (Offline Local Storage) |
+
+</div>
