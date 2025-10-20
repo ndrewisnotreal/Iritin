@@ -53,6 +53,8 @@ Kustomisasi kategori transaksi — tambahkan, ubah, atau hapus sesuai preferensi
 
 ## 👩‍💻 Tim Pengembang
 
+<div align="center">
+
 | **Nama** | **NIM** | 
 |-----------|----------|
 | 🧠 Yenni Theresia Zalukhu | 231402012 | 
@@ -61,3 +63,4 @@ Kustomisasi kategori transaksi — tambahkan, ubah, atau hapus sesuai preferensi
 | 🧩 Andrew Domara Lumban Batu | 231402107 | 
 | ⚙️ Zulfikri Anwar | 231402110 |
 
+</div>
