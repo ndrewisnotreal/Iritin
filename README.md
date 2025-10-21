@@ -1,7 +1,7 @@
 <div align="center">
 
-# 💸 **Iritin: Budgeting & Savings Tracker**  
-### *Pelacak Anggaran & Penghematan Modern untuk Gaya Hidup Cerdas*
+# 💸 **Iritin: Budgeting & Savings Tracker** 💸 
+### *Aplikasi Pelacak Anggaran & Penghematan Modern untuk Gaya Hidup Minimalis*
 
 <img src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS-green?style=flat-square">
 <img src="https://img.shields.io/badge/Framework-Flutter-blue?style=flat-square">
@@ -13,10 +13,10 @@
 ---
 
 ## 🪙 Tentang Aplikasi
-**Iritin** adalah aplikasi seluler **cross-platform** yang membantu pengguna mengelola keuangan pribadi dengan cara yang **mudah, cepat, dan menyenangkan**.  
+**Iritin** adalah aplikasi mobile **cross-platform** yang membantu pengguna dalam mengelola keuangan pribadi dengan cara yang **mudah, cepat, dan menyenangkan**.  
 Fokus utama aplikasi ini adalah **penghematan**, **pengaturan anggaran**, dan **pencatatan transaksi yang efisien** — lengkap dengan fitur **konversi mata uang real-time** dan **pengingat tagihan otomatis**.
 
-💬 *"Track smart, save more — with Iritin!"*
+💬 *"Budget Rapi, Hidup Hepi — bersama Iritin!"*
 
 ---
 
@@ -30,14 +30,15 @@ Tetapkan batas pengeluaran bulanan per kategori dengan indikator visual yang men
 
 ### 📊 Visualisasi Data Keuangan
 Menampilkan data keuangan dengan cara yang menarik:
-- **Bar Chart** → Pengeluaran bulanan  
-- **Pie Chart** → Distribusi pengeluaran berdasarkan kategori  
+- **Bar Chart** → Menampilkan total pengeluaran setiap bulan secara vertikal untuk memudahkan pengguna melihat pola kenaikan atau penurunan pengeluaran dari waktu ke waktu.  
+- **Pie Chart** → Menggambarkan proporsi pengeluaran per kategori (misalnya: Makanan, Transportasi, dan Liburan) dalam bentuk lingkaran. Ini membantu pengguna memahami alokasi keuangan secara visual.
+- **Line Chart** → Menampilkan grafik garis yang menunjukkan perubahan total saldo, pendapatan, atau pengeluaran harian/mingguan/bulanan secara berurutan dari waktu ke waktu.  
 
 ### ⏰ Pengingat Tagihan (Bill Reminder)
-Catat tagihan berulang, dapatkan notifikasi sebelum jatuh tempo, dan biarkan sistem otomatis mencatat pembayaran saat lunas.
+Catat tagihan berulang, dapatkan notifikasi sebelum tanggal jatuh tempo dan bayar tagihan Anda tepat waktu .
 
 ### 🤝 Split Bill (Pembagian Tagihan)
-Bagi total tagihan secara merata di antara teman dan catat piutang/utang pengguna dengan mudah.
+Bagi total tagihan secara merata dengan teman dan catat utang-piutang yang dimiliki orang lain kepada Anda dengan mudah.
 
 ### 💱 Exchange Currency (Konversi Mata Uang)
 ✨ **Fitur Baru!**  
