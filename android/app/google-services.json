@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "60331461282",
+    "project_id": "iritin-80577",
+    "storage_bucket": "iritin-80577.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:60331461282:android:829ada510fcd1458bf25fb",
+        "android_client_info": {
+          "package_name": "com.example.iritin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCG12HoiTBFLcGj0d1vW7reTlGhx2IQjm0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
