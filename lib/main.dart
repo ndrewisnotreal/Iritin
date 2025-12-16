@@ -1,107 +1,75 @@
-// lib/main.dart (MODIFIKASI TOTAL)
-
 import 'package:flutter/material.dart';
-// Impor semua file halaman dan model
-import 'package:iritin/dashboard_page.dart';
-import 'package:iritin/history_page.dart';
-import 'package:iritin/bills_screen.dart'; 
-import 'package:iritin/transaction_model.dart'; // Wajib
+import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:iritin/firebase_options.dart';
+import 'package:iritin/providers/dashboard_provider.dart';
+import 'package:iritin/providers/transaction_provider.dart';
+import 'package:iritin/models/bill_provider.dart';
+import 'package:iritin/models/account_provider.dart';
+import 'package:iritin/services/notification_service.dart';
+import 'package:iritin/screens/dashboard/dashboard_screen.dart';
+import 'package:iritin/screens/auth/login_screen.dart';
+import 'package:iritin/screens/splash/splash_screen1.dart'; // Import Splash 1
 
-void main() {
-  runApp(const IritinApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await NotificationService().init();
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => DashboardProvider()),
+        ChangeNotifierProvider(create: (_) => TransactionProvider()),
+        ChangeNotifierProvider(create: (_) => BillProvider()),
+        ChangeNotifierProvider(create: (_) => AccountProvider()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
-// ... (Class IritinApp tetap sama) ...
-
-class IritinApp extends StatelessWidget {
-  const IritinApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Iritin App',
       debugShowCheckedModeBanner: false,
+      title: 'Iritin',
       theme: ThemeData(
-        primarySwatch: Colors.teal, 
-        appBarTheme: const AppBarTheme(
-          color: Colors.teal,
-          foregroundColor: Colors.white,
-        ),
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor: Colors.teal,
-          foregroundColor: Colors.white,
-        ),
         useMaterial3: true,
+        textTheme: GoogleFonts.poppinsTextTheme(),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFCCFF00)),
       ),
-      home: const MainScreen(), 
+      // MULAILAH DARI SPLASH SCREEN 1
+      home: const SplashScreen1(),
     );
   }
 }
 
-// --- MAIN SCREEN: SEKARANG BERTINDAK SEBAGAI STATE MANAGER UTAMA ---
-class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
-
-  @override
-  State<MainScreen> createState() => _MainScreenState();
-}
-
-class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 0;
-  
-  // 1. PINDAH DATA: Data Transaksi sekarang disimpan di sini!
-  final List<Transaction> _transactions = []; 
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-  // Fungsi untuk Menambah Transaksi (Dibagikan ke Dashboard)
-  void _addTransaction(Transaction newTransaction) {
-    setState(() {
-      _transactions.add(newTransaction);
-      // Opsional: Urutkan
-      _transactions.sort((a, b) => b.date.compareTo(a.date)); 
-    });
-  }
+// Widget Baru: Gerbang Pengecekan Login
+// Ini akan dipanggil setelah user klik "Mulai" di Splash Screen 2
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Definisi Daftar Halaman
-    final List<Widget> _widgetOptions = <Widget>[
-      // Kirim data transaksi dan fungsi penambah transaksi ke Dashboard
-      DashboardPage(
-        transactions: _transactions,
-        addTransaction: _addTransaction, 
-      ),
-      // Kirim data transaksi ke Halaman Riwayat
-      HistoryPage(transactions: _transactions), 
-      // Halaman Fitur Lain (Tidak perlu data transaksi)
-      const BillsScreen(), 
-    ];
-
-    return Scaffold(
-      // 2. GUNAKAN INDEXEDSTACK: Menjaga state semua halaman tetap hidup
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _widgetOptions,
-      ),
-      
-      // Tombol FAB tetap di DashboardPage, tidak di sini.
-      
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Riwayat'),
-          // BottomNavigationBarItem(icon: Icon(Icons.wallet_travel), label: 'Fitur Lain'),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.teal,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
-      ),
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasData) {
+          return const DashboardScreen(); // Sudah Login
+        }
+        return const LoginScreen(); // Belum Login
+      },
     );
   }
 }
