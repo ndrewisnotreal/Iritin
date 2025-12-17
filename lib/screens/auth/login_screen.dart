@@ -17,21 +17,20 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isObscure = true;
 
-  // Fungsi Login yang Diperbaiki
+  // --- LOGIKA LOGIN EMAIL ---
   Future<void> _handleLogin() async {
-    // 1. Validasi Input
-    if (_emailController.text.trim().isEmpty ||
-        _passwordController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Email dan Password wajib diisi!"),
-          backgroundColor: Colors.red,
-        ),
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      _showCustomDialog(
+        type: 'general',
+        title: "Gagal Masuk",
+        description: "Email atau kata sandi wajib diisi.",
       );
       return;
     }
 
-    // 2. Tampilkan Loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -39,59 +38,226 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     try {
-      // 3. Proses Login Firebase
-      final message = await AuthService().signIn(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+      final errorCode = await AuthService().signIn(
+        email: email,
+        password: password,
       );
 
-      // 4. Tutup Loading (PASTI TERTUTUP KARENA ADA DI TRY-FINALLY / logic urut)
       if (!mounted) return;
-      Navigator.of(
-        context,
-        rootNavigator: true,
-      ).pop(); // Gunakan rootNavigator: true agar dialog pasti ketutup
+      Navigator.of(context, rootNavigator: true).pop(); // Tutup Loading
 
-      // 5. Cek Hasil
-      if (message == null) {
-        // SUKSES -> Pindah Dashboard
-        if (!mounted) return;
+      if (errorCode == null) {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const DashboardScreen()),
-          (route) =>
-              false, // Hapus semua history halaman sebelumnya (Login/Register)
+          (route) => false,
         );
       } else {
-        // GAGAL
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Gagal Masuk: $message"),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _handleAuthError(errorCode);
       }
     } catch (e) {
-      // Error Tak Terduga
       if (!mounted) return;
-      // Pastikan loading tertutup jika belum
       Navigator.of(context, rootNavigator: true).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Terjadi kesalahan: $e"),
-          backgroundColor: Colors.red,
-        ),
+      _showCustomDialog(
+        type: 'general',
+        title: "Error Sistem",
+        description: "Terjadi kesalahan: $e",
       );
     }
   }
 
+  // --- LOGIKA LOGIN GOOGLE (SUDAH FIX) ---
+  Future<void> _handleGoogleLogin() async {
+    // 1. Tampilkan Loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // 2. Panggil Service Google
+      final errorCode = await AuthService().signInWithGoogle();
+
+      // Tutup Loading
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+
+      // 3. Cek Hasil
+      if (errorCode == null) {
+        // SUKSES LOGIN
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+          (route) => false,
+        );
+      } else if (errorCode == "cancel") {
+        // User Batal (Klik Back/Luar Pop-up) -> Diamkan saja / Print log
+        print("Login Google Dibatalkan User");
+      } else {
+        // GAGAL
+        _showCustomDialog(
+          type: 'general',
+          title: "Gagal Masuk Google",
+          description: "Gagal terhubung ke Google. ($errorCode)",
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      _showCustomDialog(
+        type: 'general',
+        title: "Error Sistem",
+        description: "Terjadi kesalahan: $e",
+      );
+    }
+  }
+
+  // Helper Error
+  void _handleAuthError(String errorCode) {
+    if (errorCode == 'user-not-found' || errorCode == 'invalid-email') {
+      _showCustomDialog(
+        type: 'not-found',
+        title: "Email Belum Terdaftar",
+        description:
+            "Pastikan email sudah benar atau silakan lakukan pendaftaran.",
+      );
+    } else if (errorCode == 'wrong-password' ||
+        errorCode == 'invalid-credential') {
+      _showCustomDialog(
+        type: 'wrong-password',
+        title: "Kata Sandi Salah",
+        description: "Kata sandi tidak sesuai.",
+      );
+    } else {
+      _showCustomDialog(
+        type: 'general',
+        title: "Gagal Masuk",
+        description: "Terjadi kesalahan ($errorCode).",
+      );
+    }
+  }
+
+  // Widget Dialog
+  void _showCustomDialog({
+    required String type,
+    required String title,
+    required String description,
+  }) {
+    IconData iconData;
+    Color btnLeftColor = const Color(0xFFEFF5BC);
+    Color btnRightColor = const Color(0xFFD2F801);
+    String btnLeftText = "Coba Lagi";
+    String btnRightText = "Lupa kata sandi?";
+    VoidCallback onRightPressed = () {
+      Navigator.pop(context);
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (c) => const ForgotPasswordScreen()),
+      );
+    };
+
+    if (type == 'not-found') {
+      iconData = Icons.remove_circle;
+      btnLeftText = "Periksa Kembali";
+      btnRightText = "Daftar Akun";
+      onRightPressed = () {
+        Navigator.pop(context);
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (c) => const RegisterScreen()),
+        );
+      };
+    } else if (type == 'wrong-password') {
+      iconData = Icons.cancel;
+    } else {
+      iconData = Icons.close;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.all(24),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(iconData, color: Colors.red, size: 60),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              description,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: btnLeftColor,
+                      foregroundColor: Colors.black,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      btnLeftText,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: btnRightColor,
+                      foregroundColor: Colors.black,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: onRightPressed,
+                    child: Text(
+                      btnRightText,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final Color backgroundColor = const Color(0xFFF8FDCF);
-
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: const Color(0xFFF8FDCF),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -153,15 +319,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const ForgotPasswordScreen(),
-                              ),
-                            );
-                          },
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const ForgotPasswordScreen(),
+                            ),
+                          ),
                           style: TextButton.styleFrom(
                             padding: EdgeInsets.zero,
                             minimumSize: const Size(0, 30),
@@ -179,7 +343,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 20),
 
-                      // TOMBOL MASUK (Panggil Fungsi Baru)
+                      // TOMBOL MASUK
                       SizedBox(
                         width: double.infinity,
                         height: 50,
@@ -192,8 +356,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          onPressed:
-                              _handleLogin, // <--- Panggil fungsi _handleLogin disini
+                          onPressed: _handleLogin,
                           child: const Text(
                             "Masuk",
                             style: TextStyle(
@@ -205,7 +368,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
 
                       const SizedBox(height: 20),
-
                       Row(
                         children: const [
                           Expanded(child: Divider(color: Colors.black12)),
@@ -224,7 +386,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Tombol Google (Placeholder)
+                      // TOMBOL GOOGLE
                       SizedBox(
                         width: double.infinity,
                         height: 50,
@@ -237,7 +399,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          onPressed: () {},
+                          onPressed:
+                              _handleGoogleLogin, // <--- FUNGSI YANG DIPANGGIL
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -264,16 +427,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
 
                 const SizedBox(height: 30),
-
                 GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const RegisterScreen(),
-                      ),
-                    );
-                  },
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const RegisterScreen(),
+                    ),
+                  ),
                   child: RichText(
                     text: const TextSpan(
                       text: "Belum punya akun? ",
@@ -307,19 +467,17 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildInputLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
-          color: Colors.black87,
-        ),
+  Widget _buildInputLabel(String label) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(
+      label,
+      style: const TextStyle(
+        fontWeight: FontWeight.w600,
+        fontSize: 14,
+        color: Colors.black87,
       ),
-    );
-  }
+    ),
+  );
 
   Widget _buildTextField({
     required TextEditingController controller,
