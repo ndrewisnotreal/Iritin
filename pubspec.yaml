@@ -13,13 +13,19 @@ dependencies:
   google_fonts: ^6.3.2
   fl_chart: ^1.1.1
   intl: ^0.20.2
-  provider: ^6.1.5+1
+  provider: ^6.1.5+1 # Provider di sini adalah dependency utama
   firebase_core: ^4.3.0
   firebase_auth: ^6.1.3
   cloud_firestore: ^6.1.1
   uuid: ^4.5.2
-  flutter_local_notifications: ^19.5.0
+  flutter_local_notifications: ^17.0.0
   permission_handler: ^12.0.1
+  firebase_storage: ^13.0.5
+  image_picker: ^1.2.1
+  device_info_plus: ^9.0.3
+  shared_preferences: ^2.2.2
+  google_sign_in: 6.2.1
+  timezone: ^0.9.2
 
 dev_dependencies:
   flutter_test:
