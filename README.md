@@ -1,6 +1,6 @@
 <div align="center">
 
-# 💸 Iritin — Budgeting & Savings Tracker  
+# 💸 Iritin — Budgeting & Savings Tracker 💸
 ### Aplikasi Pelacak Anggaran Modern untuk Gaya Hidup Minimalis
 
 <img src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS-4CAF50?style=flat-square">
@@ -12,7 +12,7 @@
 
 ---
 
-## 🪙 Tentang Iritin
+## 🪙 Tentang Iritin 🪙
 
 **Iritin** adalah aplikasi mobile yang membantu pengguna mengelola keuangan pribadi secara **sederhana, praktis, dan terstruktur**.  
 Aplikasi ini dirancang untuk mendukung pengguna dalam **mengatur anggaran**, **mencatat pemasukan dan pengeluaran**, serta **mengelola saldo dari berbagai akun rekening**.
@@ -23,9 +23,9 @@ Dengan tampilan yang modern, bersih, dan mudah digunakan, Iritin mendorong pengg
 
 ---
 
-## 🚀 Fitur Utama
+## 🚀 Fitur Utama 🚀
 
-### 💰 Pencatatan Pemasukan & Pengeluaran
+### 💰 Pencatatan Pemasukan & Pengeluaran 💰
 Pengguna dapat mencatat transaksi keuangan dengan formulir yang jelas dan mudah dipahami.  
 Setiap transaksi mencakup:
 - **Deskripsi transaksi**
@@ -37,7 +37,7 @@ Fitur ini membantu pengguna mencatat aktivitas keuangan secara rapi dan konsiste
 
 ---
 
-### 🏦 Manajemen Akun Rekening
+### 🏦 Manajemen Akun Rekening 🏦
 Iritin mendukung pengelolaan lebih dari satu akun rekening, seperti:
 - **Cash**
 - **Dompet Digital**
@@ -53,7 +53,7 @@ Data rekening akan otomatis terintegrasi dengan transaksi pemasukan dan pengelua
 
 ---
 
-### 📊 Visualisasi Data Keuangan
+### 📊 Visualisasi Data Keuangan 📊
 Untuk membantu analisis keuangan, Iritin menyajikan data dalam bentuk grafik:
 - **Pie Chart**  
   Menampilkan proporsi pengeluaran berdasarkan kategori sehingga pengguna dapat melihat alokasi dana secara visual.
@@ -62,7 +62,7 @@ Untuk membantu analisis keuangan, Iritin menyajikan data dalam bentuk grafik:
 
 ---
 
-### ⏰ Pengingat Tagihan (Bill Reminder)
+### ⏰ Pengingat Tagihan (Bill Reminder) ⏰
 Fitur pengingat tagihan membantu pengguna:
 - Mencatat tagihan rutin
 - Menerima notifikasi sebelum tanggal jatuh tempo
@@ -70,28 +70,28 @@ Fitur pengingat tagihan membantu pengguna:
 
 ---
 
-### 📅 Riwayat & Filter Transaksi
+### 📅 Riwayat & Filter Transaksi 📅
 Pengguna dapat menelusuri riwayat transaksi dengan mudah melalui fitur filter berdasarkan:
 - Rentang waktu (harian, mingguan, bulanan)
 - Kategori transaksi
 
 ---
 
-### 👤 Pengaturan Profil
+### 👤 Pengaturan Profil 👤
 Pengguna dapat mengelola informasi akun melalui halaman pengaturan profil, seperti:
 - Mengubah data profil pengguna
 - Menyesuaikan preferensi aplikasi
 
 ---
 
-### 🔐 Reset Password
+### 🔐 Reset Password 🔐
 Fitur reset password disediakan untuk meningkatkan keamanan akun pengguna, memungkinkan pengguna:
 - Mengatur ulang kata sandi jika lupa
 - Mengamankan akses akun dengan lebih baik
 
 ---
 
-## 👩‍💻 Tim Pengembang
+## 👩‍💻 Tim Pengembang 👩‍💻
 
 <div align="center">
 
@@ -107,26 +107,26 @@ Fitur reset password disediakan untuk meningkatkan keamanan akun pengguna, memun
 
 ---
 
-## 🧱 Teknologi yang Digunakan
+## 🧱 Teknologi yang Digunakan 🧱
 
 <div align="center">
 
 | Komponen | Teknologi |
 |--------|-----------|
-| Framework | :contentReference[oaicite:0]{index=0} |
+| Framework | Flutter |
 | Bahasa Pemrograman | Dart |
 | IDE | Visual Studio Code / Android Studio |
-| Backend & API | :contentReference[oaicite:1]{index=1} |
+| Backend & API | Google Firebase |
 | Database | Firebase |
 
 </div>
 
 ---
 
-## 📌 Status Pengembangan
+## 📌 Status Pengembangan 📌
 Aplikasi **Iritin** saat ini masih berada dalam tahap **pengembangan**.  
 Pengembangan difokuskan pada penyempurnaan fungsionalitas, pengalaman pengguna, serta stabilitas sistem.
 
 ---
 
-✨ *Terima kasih telah menggunakan aplikasi Iritin.*
+✨ *Terima kasih telah menggunakan aplikasi Iritin.* ✨
