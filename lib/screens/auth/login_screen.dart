@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // <--- WAJIB IMPORT
 import 'package:iritin/styling/app_colors.dart';
 import 'package:iritin/screens/auth/forgot_password_screen.dart';
 import 'package:iritin/screens/auth/register_screen.dart';
 import 'package:iritin/screens/dashboard/dashboard_screen.dart';
 import 'package:iritin/auth/auth_service.dart';
+
+// --- IMPORT DASHBOARD PROVIDER ---
+import 'package:iritin/providers/dashboard_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,6 +20,19 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isObscure = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // --- [FIX UTAMA DI SINI] ---
+    // Setiap kali Halaman Login dibuka (artinya user baru saja logout),
+    // kita reset Tab Dashboard ke 0 (Home) secara diam-diam.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<DashboardProvider>().setIndex(0);
+      }
+    });
+  }
 
   // --- LOGIKA LOGIN EMAIL ---
   Future<void> _handleLogin() async {
@@ -47,10 +64,10 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.of(context, rootNavigator: true).pop(); // Tutup Loading
 
       if (errorCode == null) {
-        Navigator.pushAndRemoveUntil(
-          context,
+        // Navigasi ke Dashboard (Tab sudah di-reset jadi 0 oleh initState)
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const DashboardScreen()),
-          (route) => false,
+          (Route<dynamic> route) => false,
         );
       } else {
         _handleAuthError(errorCode);
@@ -66,9 +83,8 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // --- LOGIKA LOGIN GOOGLE (SUDAH FIX) ---
+  // --- LOGIKA LOGIN GOOGLE ---
   Future<void> _handleGoogleLogin() async {
-    // 1. Tampilkan Loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -76,26 +92,19 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     try {
-      // 2. Panggil Service Google
       final errorCode = await AuthService().signInWithGoogle();
 
-      // Tutup Loading
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
 
-      // 3. Cek Hasil
       if (errorCode == null) {
-        // SUKSES LOGIN
-        Navigator.pushAndRemoveUntil(
-          context,
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const DashboardScreen()),
-          (route) => false,
+          (Route<dynamic> route) => false,
         );
       } else if (errorCode == "cancel") {
-        // User Batal (Klik Back/Luar Pop-up) -> Diamkan saja / Print log
         print("Login Google Dibatalkan User");
       } else {
-        // GAGAL
         _showCustomDialog(
           type: 'general',
           title: "Gagal Masuk Google",
@@ -113,7 +122,8 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // Helper Error
+  // ... (SISA KODE HELPER & WIDGET UI TETAP SAMA SEPERTI SEBELUMNYA) ...
+
   void _handleAuthError(String errorCode) {
     if (errorCode == 'user-not-found' || errorCode == 'invalid-email') {
       _showCustomDialog(
@@ -138,7 +148,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // Widget Dialog
   void _showCustomDialog({
     required String type,
     required String title,
@@ -399,8 +408,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          onPressed:
-                              _handleGoogleLogin, // <--- FUNGSI YANG DIPANGGIL
+                          onPressed: _handleGoogleLogin,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

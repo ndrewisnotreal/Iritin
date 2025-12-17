@@ -29,6 +29,13 @@ class DashboardProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // --- TAMBAHAN: RESET TAB KE HOME ---
+  void resetTab() {
+    _selectedIndex = 0;
+    _subPage = null;
+    notifyListeners();
+  }
+
   // Helper buat tombol Back Android
   bool onWillPop() {
     if (_subPage != null) {

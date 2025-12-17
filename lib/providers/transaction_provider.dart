@@ -74,6 +74,14 @@ class TransactionProvider extends ChangeNotifier {
         });
   }
 
+  void resetData() {
+    _transactions = [];
+    _balance = 0; // Reset saldo
+    _totalIncome = 0;
+    _totalExpense = 0;
+    notifyListeners();
+  }
+
   // 2. TAMBAH TRANSAKSI (Updated dengan parameter Account)
   Future<void> addTransaction({
     required int type,

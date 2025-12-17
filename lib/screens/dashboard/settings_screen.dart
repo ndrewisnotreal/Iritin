@@ -1,12 +1,18 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // <--- IMPORT WAJIB
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:iritin/auth/auth_service.dart';
 import 'package:iritin/screens/auth/login_screen.dart';
+
+// --- IMPORT PROVIDER (Sesuaikan path jika beda) ---
+import 'package:iritin/providers/transaction_provider.dart';
+import 'package:iritin/models/account_provider.dart';
 
 // --- WARNA & KONSTANTA ---
 const Color primaryGreen = Color(0xFFD1F333);
@@ -39,7 +45,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      // Ambil status notifikasi, kalau belum ada anggap true (ON)
       _isNotificationEnabled = prefs.getBool('pref_notification') ?? true;
     });
   }
@@ -53,11 +58,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // --- FUNGSI SIMPAN PREFERENSI ---
   Future<void> _toggleNotification(bool value) async {
-    setState(() => _isNotificationEnabled = value); // Update UI dulu biar cepet
+    setState(() => _isNotificationEnabled = value);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('pref_notification', value); // Simpan ke Memori
+    await prefs.setBool('pref_notification', value);
 
-    // Feedback visual (Opsional)
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -68,8 +72,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
-  // ... (SISA KODE SAMA: IZIN GALERI, FOTO, PASSWORD, DLL) ...
 
   Future<bool> _requestGalleryPermission() async {
     Permission permission;
@@ -151,6 +153,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  // --- LOGOUT YANG SUDAH DIPERBAIKI ---
   Future<void> _handleLogout() async {
     final bool? shouldLogout = await showDialog<bool>(
       context: context,
@@ -172,7 +175,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     if (shouldLogout == true) {
+      // 1. BERSIHKAN DATA PROVIDER (Agar User Baru Tidak Lihat Data Lama)
+      if (mounted) {
+        context.read<TransactionProvider>().resetData();
+        context.read<AccountProvider>().resetData();
+      }
+
+      // 2. LOGOUT DARI FIREBASE
       await AuthService().signOut();
+
+      // 3. NAVIGASI KE LOGIN
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
@@ -181,6 +193,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     }
   }
+
+  // ... (SISA KODE EDIT PROFILE & CHANGE PASSWORD TETAP SAMA) ...
 
   void _showEditProfileDialog() {
     final TextEditingController nameController = TextEditingController(
@@ -378,10 +392,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _showSuccessDialog();
                     } on FirebaseAuthException catch (e) {
                       String message = "Gagal mengganti password";
-                      if (e.code == 'wrong-password')
+                      if (e.code == 'wrong-password') {
                         message = "Password lama salah!";
-                      else if (e.code == 'weak-password')
+                      } else if (e.code == 'weak-password') {
                         message = "Password baru terlalu lemah";
+                      }
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(message),
@@ -543,7 +558,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: "Ganti Kata Sandi",
                   onTap: _showChangePasswordDialog,
                 ),
-
                 const SizedBox(height: 24),
                 const Text(
                   "Preferensi",
@@ -560,12 +574,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   trailing: Switch(
                     value: _isNotificationEnabled,
                     activeColor: primaryGreen,
-                    onChanged: (val) => _toggleNotification(
-                      val,
-                    ), // FUNGSI BARU DIPANGGIL DISINI
+                    onChanged: (val) => _toggleNotification(val),
                   ),
                 ),
-
                 const SizedBox(height: 30),
                 SizedBox(
                   width: double.infinity,
