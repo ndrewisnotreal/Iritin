@@ -8,7 +8,7 @@ class TransactionProvider extends ChangeNotifier {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Data Lokal (untuk ditampilkan di UI)
+  // Data Lokal
   List<Map<String, dynamic>> _transactions = [];
   int _balance = 0;
   int _totalExpense = 0;
@@ -20,25 +20,22 @@ class TransactionProvider extends ChangeNotifier {
   int get totalExpense => _totalExpense;
   int get totalIncome => _totalIncome;
 
-  // Constructor: Langsung pasang "Telinga" (Listener) saat Provider dibuat
   TransactionProvider() {
     _listenToTransactions();
   }
 
-  // 1. FUNGSI MENDENGARKAN DATA DARI FIREBASE (REALTIME)
+  // 1. LISTEN DATA DARI FIREBASE
   void _listenToTransactions() {
     User? user = _auth.currentUser;
-    if (user == null) return; // Kalau belum login, gak usah dengerin
+    if (user == null) return;
 
-    // Kita ambil data dari collection: users -> [UID] -> transactions
     _db
         .collection('users')
         .doc(user.uid)
         .collection('transactions')
-        .orderBy('createdAt', descending: true) // Urutkan dari yang terbaru
+        .orderBy('createdAt', descending: true)
         .snapshots()
         .listen((snapshot) {
-          // Setiap ada perubahan di database, kode ini jalan otomatis
           _transactions = [];
           _balance = 0;
           _totalIncome = 0;
@@ -47,24 +44,23 @@ class TransactionProvider extends ChangeNotifier {
           for (var doc in snapshot.docs) {
             Map<String, dynamic> data = doc.data();
 
-            // Masukkan ke list lokal
             _transactions.add({
-              "id": doc.id, // Simpan ID dokumen buat hapus/edit nanti
+              "id": doc.id,
               "type": data['type'],
               "amount": data['amount'],
               "category": data['category'],
               "desc": data['desc'],
               "title": data['title'],
+              "account": data['account'] ?? "Tunai", // AMBIL DATA AKUN
               "date": data['date'],
               "time": data['time'],
-              // Convert IconData & Color manual karena Firestore gak bisa simpan Icon
               "icon": data['type'] == 0
                   ? Icons.arrow_downward
                   : Icons.arrow_upward,
               "color": data['type'] == 0 ? Colors.green : Colors.red,
             });
 
-            // Hitung Ulang Saldo
+            // Hitung Saldo Global Transaksi
             int amount = data['amount'];
             if (data['type'] == 0) {
               _balance += amount;
@@ -74,18 +70,17 @@ class TransactionProvider extends ChangeNotifier {
               _totalExpense += amount;
             }
           }
-
-          // Kabari UI kalau data berubah
           notifyListeners();
         });
   }
 
-  // 2. FUNGSI TAMBAH TRANSAKSI KE FIREBASE
+  // 2. TAMBAH TRANSAKSI (Updated dengan parameter Account)
   Future<void> addTransaction({
     required int type,
     required int amount,
     required String category,
     required String desc,
+    required String account, // WAJIB: Nama rekening
   }) async {
     User? user = _auth.currentUser;
     if (user == null) return;
@@ -93,28 +88,26 @@ class TransactionProvider extends ChangeNotifier {
     try {
       await _db
           .collection('users')
-          .doc(user.uid) // Masuk ke folder user khusus dia
+          .doc(user.uid)
           .collection('transactions')
           .add({
             "type": type,
             "amount": amount,
             "category": category,
             "desc": desc,
+            "account": account, // SIMPAN KE FIREBASE
             "title": desc.isNotEmpty
                 ? desc
                 : (type == 0 ? "Pemasukan Lain" : "Pengeluaran Lain"),
             "date": DateFormat('dd/MM/yyyy').format(DateTime.now()),
             "time": DateFormat('HH.mm').format(DateTime.now()) + " WIB",
-            "createdAt": FieldValue.serverTimestamp(), // Penting buat sorting
+            "createdAt": FieldValue.serverTimestamp(),
           });
-      // Gak perlu notifyListeners() disini, karena fungsi _listenToTransactions di atas
-      // bakal otomatis tau kalau ada data baru masuk. Magic!
     } catch (e) {
       print("Gagal simpan transaksi: $e");
     }
   }
 
-  // Helper Format Rupiah (Tetap sama)
   static String formatRupiah(int amount) {
     return NumberFormat.currency(
       locale: 'id_ID',

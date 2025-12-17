@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart'; 
 import 'package:iritin/styling/app_colors.dart';
 import 'package:uuid/uuid.dart';
+import 'dart:ui'; // Wajib untuk efek blur (BackdropFilter)
 // Pastikan path ini benar:
 import 'package:iritin/models/account_provider.dart'; 
 
@@ -23,12 +24,89 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
     const Color(0xFF434149),
   ];
 
-
   @override
   void dispose() {
     _nameController.dispose();
     _balanceController.dispose();
     super.dispose();
+  }
+
+  // --- WIDGET LAYAR WARNING (PROMPT) ---
+  void _showWarningPrompt() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // User wajib klik OK
+      builder: (BuildContext context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            color: Colors.black.withOpacity(0.4),
+            child: Center(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded, 
+                      size: 60, 
+                      color: Colors.orange, 
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      "Saldo Tidak Valid",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 18, 
+                        fontWeight: FontWeight.bold, 
+                        color: Color(0xFF2E4053),
+                        decoration: TextDecoration.none, // Menghilangkan garis bawah kuning
+                      ), 
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      "Saldo yang diisi harus melebihi 0 Rp.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.grey, 
+                        fontSize: 14,
+                        fontWeight: FontWeight.normal,
+                        decoration: TextDecoration.none,
+                      ), 
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFD2F801), // Warna Lime
+                          foregroundColor: Colors.black,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text(
+                          "OKE", 
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
   
   void _submitAccount() {
@@ -39,16 +117,24 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
       return;
     }
 
+    // --- LOGIKA VALIDASI SALDO ---
+    final String cleanBalance = _balanceController.text.replaceAll('.', '').replaceAll(',', '');
+    final double? balanceAmount = double.tryParse(cleanBalance);
+
+    if (balanceAmount == null || balanceAmount <= 0) {
+      _showWarningPrompt(); // Munculkan layar warning jika 0
+      return;
+    }
+
     final newAccount = AccountModel(
       id: _uuid.v4(), 
       title: _nameController.text,
-      saldo: "Rp${_balanceController.text.replaceAll('.', '').replaceAll(',', '')}",
+      saldo: "Rp${cleanBalance}",
       lastUsed: "Baru", 
       colors: _defaultColors,
     );
 
     context.read<AccountProvider>().addAccount(newAccount);
-
     Navigator.pop(context);
   }
   
@@ -75,9 +161,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
               child: Column(
                 children: [
                   _buildFormCard(),
-
                   const Spacer(),
-
                   _buildSubmitButton(),
                   const SizedBox(height: 20),
                 ],
@@ -170,7 +254,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
                 _buildTextField(
                   controller: _balanceController,
                   hint: "5.000.000",
-                  prefixText: "Rp   ",
+                  prefixText: "Rp   ",
                   keyboardType: TextInputType.number,
                 ),
               ],

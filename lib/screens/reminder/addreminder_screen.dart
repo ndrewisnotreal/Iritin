@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:iritin/models/bill_provider.dart';
-import 'package:iritin/services/notification_service.dart'; // Import Service Notifikasi
+import 'package:iritin/services/notification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 
-// Definisi Warna Kunci
 const Color primaryGreen = Color(0xFFD1F333);
-const Color accentGreen = Color(0xFFF2FFB0);
 const Color textColor = Color(0xFF2E4053);
 
-// Model untuk menampung data kategori dan ikonnya
 class CategoryItem {
   final String name;
   final IconData icon;
   final Color color;
-
   CategoryItem({required this.name, required this.icon, required this.color});
 }
 
@@ -27,12 +25,13 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
+  final TextEditingController _timeController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
 
-  // State untuk Dropdown Kategori
   CategoryItem? _selectedCategory;
+  DateTime? _selectedDateTime;
+  TimeOfDay? _selectedTime;
 
-  // Data Kategori Tagihan
   final List<CategoryItem> _billCategories = [
     CategoryItem(name: 'Tagihan', icon: Icons.lightbulb, color: Colors.brown),
     CategoryItem(name: 'Sewa/Cicilan', icon: Icons.home, color: Colors.indigo),
@@ -44,42 +43,32 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedCategory = _billCategories.first; // Set default
-
-    // --- DEMO PERMISSION ---
-    // Minta izin notifikasi saat halaman dibuka.
-    // Ini akan memunculkan pop-up "Allow Notifications?" di Android 13+
-    NotificationService().requestPermissions();
+    _selectedCategory = _billCategories.first;
+    _checkPermission();
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _amountController.dispose();
-    _dateController.dispose();
-    _noteController.dispose();
-    super.dispose();
+  Future<void> _checkPermission() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool isEnabled = prefs.getBool('pref_notification') ?? true;
+    if (isEnabled) {
+      NotificationService().requestPermissions();
+    }
   }
 
-  // Fungsi untuk menampilkan Date Picker
   Future<void> _selectDate(BuildContext context) async {
     final DateTime now = DateTime.now();
-
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _dateController.text.isNotEmpty
-          ? DateTime.parse(_dateController.text.split('/').reversed.join())
-          : now,
+      initialDate: _selectedDateTime ?? now,
       firstDate: now,
       lastDate: DateTime(now.year + 5),
-      builder: (BuildContext context, Widget? child) {
+      builder: (context, child) {
         return Theme(
           data: ThemeData.light().copyWith(
             colorScheme: const ColorScheme.light(
               primary: primaryGreen,
               onPrimary: textColor,
             ),
-            dialogBackgroundColor: Colors.white,
           ),
           child: child!,
         );
@@ -87,336 +76,268 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
     );
 
     if (picked != null) {
-      String formattedDate =
-          "${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}";
-
       setState(() {
-        _dateController.text = formattedDate;
+        _selectedDateTime = picked;
+        _dateController.text = DateFormat('dd/MM/yyyy').format(picked);
       });
     }
   }
 
-  // --- WIDGET KUSTOM ---
-
-  // 1. Header Kustom
-  Widget _buildCustomHeader(String userName, String avatarUrl) {
-    return AppBar(
-      automaticallyImplyLeading: false,
-      backgroundColor: Colors.transparent,
-      flexibleSpace: ClipPath(
-        clipper: _SimpleCurveClipper(),
-        child: Container(
-          height: 150,
-          color: primaryGreen,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 40.0, left: 20.0, right: 20.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 25,
-                      backgroundImage: AssetImage('assets/avatar.jpg'),
-                      backgroundColor: Colors.white,
-                    ),
-                    const SizedBox(width: 15),
-                    Text(
-                      'Halo, $userName!',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
-                      ),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: textColor),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
+  Future<void> _selectTime(BuildContext context) async {
+    final TimeOfDay now = TimeOfDay.now();
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime ?? now,
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: primaryGreen,
+              onPrimary: textColor,
             ),
           ),
-        ),
-      ),
+          child: child!,
+        );
+      },
     );
+
+    if (picked != null) {
+      setState(() {
+        _selectedTime = picked;
+        final hour = picked.hour.toString().padLeft(2, '0');
+        final minute = picked.minute.toString().padLeft(2, '0');
+        _timeController.text = "$hour:$minute";
+      });
+    }
   }
 
-  // 2. Widget Input Form Kustom
-  Widget _buildInputField({
-    required String label,
-    required String hint,
-    required TextEditingController controller,
-    IconData? suffixIcon,
-    VoidCallback? onTap,
-    bool readOnly = false,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    bool isReadOnly = readOnly || onTap != null;
+  void _saveReminder() async {
+    if (_nameController.text.isEmpty ||
+        _amountController.text.isEmpty ||
+        _selectedDateTime == null ||
+        _selectedTime == null ||
+        _selectedCategory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Semua field (termasuk jam) wajib diisi!'),
+        ),
+      );
+      return;
+    }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: textColor,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          readOnly: isReadOnly,
-          keyboardType: keyboardType,
-          style: const TextStyle(color: textColor),
-          onTap: onTap,
-          showCursor: !isReadOnly,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: textColor.withOpacity(0.6)),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 15,
-            ),
-            filled: true,
-            fillColor: accentGreen,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: const BorderSide(color: primaryGreen, width: 1.5),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: const BorderSide(color: primaryGreen, width: 1.5),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: const BorderSide(color: primaryGreen, width: 2.0),
-            ),
-            suffixIcon: suffixIcon != null
-                ? Icon(suffixIcon, color: primaryGreen)
-                : null,
-          ),
-        ),
-        const SizedBox(height: 20),
-      ],
+    final DateTime scheduledDateTime = DateTime(
+      _selectedDateTime!.year,
+      _selectedDateTime!.month,
+      _selectedDateTime!.day,
+      _selectedTime!.hour,
+      _selectedTime!.minute,
     );
-  }
 
-  // 3. Widget Dropdown Kategori
-  Widget _buildCategoryDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Kategori',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: textColor,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-          decoration: BoxDecoration(
-            color: accentGreen,
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: primaryGreen, width: 1.5),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<CategoryItem>(
-              isExpanded: true,
-              value: _selectedCategory,
-              hint: const Text("Pilih Kategori"),
-              icon: const Icon(Icons.keyboard_arrow_down, color: primaryGreen),
-              items: _billCategories.map((CategoryItem category) {
-                return DropdownMenuItem<CategoryItem>(
-                  value: category,
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: category.color,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Icon(
-                          category.icon,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        category.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: textColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-              onChanged: (CategoryItem? newValue) {
-                setState(() {
-                  _selectedCategory = newValue;
-                });
-              },
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-      ],
+    // Notifikasi 5 menit sebelum
+    final DateTime notificationTriggerTime = scheduledDateTime.subtract(
+      const Duration(minutes: 5),
     );
+
+    if (notificationTriggerTime.isBefore(DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Waktu pengingat (5 menit sebelum) sudah terlewat! Pilih waktu di masa depan.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Buat ID unik untuk notifikasi
+    int notifId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    final newBill = BillModel(
+      name: _nameController.text,
+      amount: _amountController.text,
+      category: _selectedCategory!.name,
+      dueDate: "${_dateController.text} ${_timeController.text}",
+      status: 'Unpaid Bill',
+      notificationId: notifId, // Simpan ID Notifikasi
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    bool isNotifEnabled = prefs.getBool('pref_notification') ?? true;
+
+    if (isNotifEnabled) {
+      await NotificationService().scheduleNotification(
+        id: notifId,
+        title: '🔔 Ingat Bayar Tagihan!',
+        body:
+            '5 Menit lagi waktu bayar ${_nameController.text} sebesar Rp ${_amountController.text}.',
+        scheduledTime: notificationTriggerTime,
+      );
+    }
+
+    if (!mounted) return;
+    Navigator.pop(context, newBill);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(100.0),
-        child: _buildCustomHeader('Wildan Adzkia', 'assets/avatar.jpg'),
-      ),
+      backgroundColor: Colors.white,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            // --- KARTU FORMULIR GABUNGAN ---
-            Card(
+          children: [
+            Container(
+              width: double.infinity,
               color: primaryGreen,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20.0),
-              ),
-              elevation: 5,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // HEADER TEKS
-                  const Padding(
-                    padding: EdgeInsets.symmetric(
-                      vertical: 20.0,
-                      horizontal: 20.0,
-                    ),
-                    child: Text(
-                      'ADD NEW REMINDER',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
+              padding: const EdgeInsets.only(bottom: 40),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
                   ),
-
-                  // FORM INPUT
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(20),
-                        bottomRight: Radius.circular(20),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.3),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.arrow_back, color: textColor),
+                        ),
                       ),
-                    ),
-                    child: Column(
-                      children: [
-                        _buildInputField(
-                          label: 'Nama Tagihan',
-                          hint: 'Contoh: Internet IndiHome',
-                          controller: _nameController,
+                      const SizedBox(width: 16),
+                      const Text(
+                        "Add Reminder",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: textColor,
                         ),
-                        _buildInputField(
-                          label: 'Jumlah',
-                          hint: 'Contoh: 300000',
-                          controller: _amountController,
-                          keyboardType: TextInputType.number,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Transform.translate(
+              offset: const Offset(0, -20),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.15),
+                        blurRadius: 20,
+                        spreadRadius: 5,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        "DETAIL TAGIHAN",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                          letterSpacing: 1.2,
                         ),
-                        _buildInputField(
-                          label: 'Tanggal Jatuh Tempo',
-                          hint: 'Pilih Tanggal',
-                          controller: _dateController,
-                          suffixIcon: Icons.calendar_today,
-                          onTap: () => _selectDate(context),
-                          readOnly: true,
-                        ),
-                        _buildCategoryDropdown(),
-                        _buildInputField(
-                          label: 'Catatan',
-                          hint: 'Opsional',
-                          controller: _noteController,
-                        ),
-                        const SizedBox(height: 30),
-
-                        // TOMBOL SIMPAN (DENGAN DEMO NOTIFIKASI)
-                        ElevatedButton(
-                          onPressed: () {
-                            // 1. Validasi
-                            if (_nameController.text.isEmpty ||
-                                _amountController.text.isEmpty ||
-                                _dateController.text.isEmpty ||
-                                _selectedCategory == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Semua field wajib diisi!'),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildInputLabel("Nama Tagihan"),
+                      _buildTextField(
+                        controller: _nameController,
+                        hint: "Contoh: WiFi Rumah",
+                        icon: Icons.label_outline,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildInputLabel("Jumlah Tagihan"),
+                      _buildTextField(
+                        controller: _amountController,
+                        hint: "Rp 0",
+                        icon: Icons.attach_money,
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildInputLabel("Kategori"),
+                      _buildCategoryDropdown(),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              children: [
+                                _buildInputLabel("Jatuh Tempo"),
+                                _buildTextField(
+                                  controller: _dateController,
+                                  hint: "Tgl",
+                                  icon: Icons.calendar_today,
+                                  readOnly: true,
+                                  onTap: () => _selectDate(context),
                                 ),
-                              );
-                              return;
-                            }
-
-                            // 2. Buat Objek Model
-                            final newBill = BillModel(
-                              name: _nameController.text,
-                              amount: _amountController.text,
-                              category: _selectedCategory!.name,
-                              dueDate: _dateController.text,
-                              status: 'Unpaid Bill', // Default status
-                            );
-
-                            // --- LOGIKA NOTIFIKASI DEMO ---
-                            // Kita delay 2 detik biar terasa kayak "sistem lagi memproses"
-                            // Lalu TING! Muncul notif.
-                            Future.delayed(const Duration(seconds: 2), () {
-                              NotificationService().showDemoNotification(
-                                id:
-                                    DateTime.now().millisecondsSinceEpoch ~/
-                                    1000,
-                                title: '🔔 Pengingat Tagihan Baru!',
-                                body:
-                                    'Jangan lupa bayar ${_nameController.text} sebesar Rp ${_amountController.text}. Jatuh tempo: ${_dateController.text}',
-                              );
-                            });
-                            // ------------------------------
-
-                            // 3. Pop kembali ke halaman sebelumnya
-                            Navigator.pop(context, newBill);
-                          },
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                _buildInputLabel("Pukul (Jam)"),
+                                _buildTextField(
+                                  controller: _timeController,
+                                  hint: "Jam",
+                                  icon: Icons.access_time,
+                                  readOnly: true,
+                                  onTap: () => _selectTime(context),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildInputLabel("Catatan (Opsional)"),
+                      _buildTextField(
+                        controller: _noteController,
+                        hint: "Tambahkan detail...",
+                        icon: Icons.notes,
+                      ),
+                      const SizedBox(height: 32),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 55,
+                        child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryGreen,
                             foregroundColor: textColor,
-                            minimumSize: const Size(double.infinity, 50),
+                            elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(16),
                             ),
-                            elevation: 5,
                           ),
+                          onPressed: _saveReminder,
                           child: const Text(
-                            'Simpan',
+                            "Simpan & Pasang Timer",
                             style: TextStyle(
-                              fontSize: 18,
                               fontWeight: FontWeight.bold,
+                              fontSize: 16,
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ],
@@ -424,27 +345,102 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
       ),
     );
   }
-}
 
-// Custom Clipper untuk Header Lengkung
-class _SimpleCurveClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    var path = Path();
-    path.lineTo(0, size.height - 20);
-    var controlPoint = Offset(size.width / 2, size.height + 20);
-    var endPoint = Offset(size.width, size.height - 20);
-    path.quadraticBezierTo(
-      controlPoint.dx,
-      controlPoint.dy,
-      endPoint.dx,
-      endPoint.dy,
+  Widget _buildInputLabel(String label) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8, left: 4),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: Colors.black87,
+          ),
+        ),
+      ),
     );
-    path.lineTo(size.width, 0);
-    path.close();
-    return path;
   }
 
-  @override
-  bool shouldReclip(_SimpleCurveClipper oldClipper) => false;
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    IconData? icon,
+    bool readOnly = false,
+    VoidCallback? onTap,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F6FA),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: TextField(
+        controller: controller,
+        readOnly: readOnly,
+        onTap: onTap,
+        keyboardType: keyboardType,
+        style: const TextStyle(fontWeight: FontWeight.w600, color: textColor),
+        decoration: InputDecoration(
+          prefixIcon: icon != null ? Icon(icon, color: Colors.grey) : null,
+          hintText: hint,
+          hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F6FA),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<CategoryItem>(
+          isExpanded: true,
+          value: _selectedCategory,
+          hint: const Text("Pilih Kategori"),
+          icon: const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
+          dropdownColor: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          items: _billCategories.map((CategoryItem category) {
+            return DropdownMenuItem<CategoryItem>(
+              value: category,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Icon(category.icon, color: category.color, size: 18),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    category.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (CategoryItem? newValue) =>
+              setState(() => _selectedCategory = newValue),
+        ),
+      ),
+    );
+  }
 }

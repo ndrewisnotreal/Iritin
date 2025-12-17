@@ -1,16 +1,18 @@
 // lib/screens/reminder/billreminder_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; 
-import 'addreminder_screen.dart'; 
-import 'package:iritin/providers/dashboard_provider.dart'; 
-import 'package:iritin/models/bill_provider.dart'; 
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart'; // Wajib untuk format Rupiah
+import 'package:iritin/providers/dashboard_provider.dart';
+import 'package:iritin/models/bill_provider.dart';
+import 'package:iritin/services/notification_service.dart'; // Import untuk cancel notifikasi
+import 'addreminder_screen.dart';
 
-// Definisi Warna Kunci
-const Color primaryGreen = Color(0xFFD1F333); 
-const Color accentGreen = Color(0xFFF2FFB0); 
-const Color textColor = Color(0xFF2E4053); 
-const Color darkGreen = Color(0xFF558B2F); 
+// --- DEFINISI WARNA KUNCI ---
+const Color primaryGreen = Color(0xFFD1F333);
+const Color accentGreen = Color(0xFFF2FFB0);
+const Color textColor = Color(0xFF2E4053);
+const Color darkGreen = Color(0xFF558B2F);
 
 class BillReminderScreen extends StatefulWidget {
   const BillReminderScreen({super.key});
@@ -20,8 +22,7 @@ class BillReminderScreen extends StatefulWidget {
 }
 
 class _BillReminderScreenState extends State<BillReminderScreen> {
-  
-  // --- DATA KATEGORI (HARUS SAMA DENGAN ADDREMINDER SCREEN) ---
+  // --- DATA KATEGORI ---
   final Map<String, dynamic> _billCategoryDataMap = {
     'Tagihan': {'icon': Icons.lightbulb, 'color': Colors.brown},
     'Sewa/Cicilan': {'icon': Icons.home, 'color': Colors.indigo},
@@ -30,31 +31,26 @@ class _BillReminderScreenState extends State<BillReminderScreen> {
     'Lainnya': {'icon': Icons.more_horiz, 'color': Colors.grey},
   };
 
-  // Helper untuk mendapatkan IconData dan Color berdasarkan nama kategori
   Map<String, dynamic> _getCategoryDetails(String categoryName) {
-    // Coba cari data kategori yang spesifik
-    final details = _billCategoryDataMap[categoryName];
-    if (details != null) {
-      return details;
-    }
-    // Kembalikan default jika tidak ditemukan
-    return _billCategoryDataMap['Lainnya'] ?? {'icon': Icons.help_outline, 'color': Colors.grey};
+    return _billCategoryDataMap[categoryName] ??
+        {'icon': Icons.help_outline, 'color': Colors.grey};
   }
-  // -----------------------------------------------------------
-  
-  // --- STATE PAGINASI DAN FILTER ---
+
+  // --- STATE ---
   final TextEditingController _searchController = TextEditingController();
   String _currentSearchQuery = '';
-  final int _maxItemsPerPage = 5; 
-  String _activeTab = 'Upcoming'; 
-  int _currentPage = 1; 
-  String _selectedCategoryFilter = 'Semua'; 
-  // --- AKHIR STATE ---
-  
-  
+  final int _maxItemsPerPage = 5;
+  String _activeTab = 'Upcoming';
+  int _currentPage = 1;
+  String _selectedCategoryFilter = 'Semua';
+
   @override
   void initState() {
     super.initState();
+    // LOGIKA FIREBASE: Ambil data saat halaman dibuka
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<BillProvider>().fetchBills();
+    });
     _searchController.addListener(_updateSearchQuery);
   }
 
@@ -64,293 +60,332 @@ class _BillReminderScreenState extends State<BillReminderScreen> {
     _searchController.dispose();
     super.dispose();
   }
-  
+
   void _updateSearchQuery() {
     setState(() {
       _currentSearchQuery = _searchController.text.toLowerCase();
-      _currentPage = 1; 
-    });
-  }
-  
-  // --- METHOD PAGINASI ---
-  void _goToNextPage() {
-    setState(() {
-      _currentPage++;
+      _currentPage = 1;
     });
   }
 
-  void _goToPreviousPage() {
-    if (_currentPage > 1) {
-      setState(() {
-        _currentPage--;
-      });
+  // --- FORMATTER RUPIAH ---
+  String _formatRupiah(String amount) {
+    String cleanAmount = amount.replaceAll(RegExp(r'[^0-9]'), '');
+    double value = double.tryParse(cleanAmount) ?? 0;
+    final formatter = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
+    return formatter.format(value);
+  }
+
+  // --- LOGIC DATA ---
+  List<BillModel> _currentFilteredList(List<BillModel> allBills) {
+    return allBills.where((bill) {
+      final matchesSearch = bill.name.toLowerCase().contains(
+        _currentSearchQuery,
+      );
+      final matchesTab =
+          (_activeTab == 'Upcoming' && bill.status == 'Unpaid Bill') ||
+          (_activeTab == 'Paid' && bill.status == 'Paid');
+      final matchesCategory =
+          _selectedCategoryFilter == 'Semua' ||
+          bill.category == _selectedCategoryFilter;
+      return matchesSearch && matchesTab && matchesCategory;
+    }).toList();
+  }
+
+  List<String> _getUniqueCategories(List<BillModel> allBills) {
+    final Set<String> categories = {};
+    for (var bill in allBills) {
+      categories.add(bill.category);
     }
+    return ['Semua', ...categories.toList()];
   }
 
-  // METHOD UNTUK MENGGANTI INDEX DI DASHBOARD
-  void _navigateToDashboardIndex(BuildContext context, int index) {
-      context.read<DashboardProvider>().setIndex(index);
+  double _totalAmount(List<BillModel> allBills) {
+    return allBills.fold(0.0, (sum, item) {
+      final cleanAmount = item.amount.replaceAll('.', '').replaceAll(',', '');
+      final amount = double.tryParse(cleanAmount) ?? 0.0;
+      return sum + amount;
+    });
   }
 
-  // METHOD UNTUK MENERIMA HASIL DARI ADDREMINDER_SCREEN (FAB)
+  int _paidCount(List<BillModel> allBills) =>
+      allBills.where((bill) => bill.status == 'Paid').length;
+  int _upcomingCount(List<BillModel> allBills) =>
+      allBills.where((bill) => bill.status == 'Unpaid Bill').length;
+
+  // --- NAVIGASI ---
+  void _goToNextPage() => setState(() => _currentPage++);
+  void _goToPreviousPage() {
+    if (_currentPage > 1) setState(() => _currentPage--);
+  }
+
   void _navigateToAddReminderScreen() async {
     final newBill = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const AddReminderScreen()),
     );
 
-    if (newBill != null) {
-      if (newBill is BillModel) {
-        context.read<BillProvider>().addBill(newBill);
-      }
-      
+    if (newBill != null && newBill is BillModel) {
+      // LOGIKA FIREBASE: addBill sekarang bersifat async (simpan ke Cloud)
+      context.read<BillProvider>().addBill(newBill);
       setState(() {
-        _currentPage = 1; 
-        _selectedCategoryFilter = 'Semua'; 
+        _currentPage = 1;
+        _selectedCategoryFilter = 'Semua';
       });
     }
   }
 
-  // GETTER: Mengambil data dari Provider dan Filter
-  List<BillModel> _currentFilteredList(List<BillModel> allBills) { 
-      return allBills.where((bill) {
-        final matchesSearch = bill.name.toLowerCase().contains(_currentSearchQuery);
-        
-        // Filter Tab (Upcoming/Paid)
-        final matchesTab = (_activeTab == 'Upcoming' && bill.status == 'Unpaid Bill') ||
-                           (_activeTab == 'Paid' && bill.status == 'Paid');
-                           
-        // Filter Kategori
-        final matchesCategory = _selectedCategoryFilter == 'Semua' || bill.category == _selectedCategoryFilter;
-
-        return matchesSearch && matchesTab && matchesCategory;
-      }).toList();
-  }
-  
-  // Getter untuk mendapatkan nama kategori unik untuk chips
-  List<String> _getUniqueCategories(List<BillModel> allBills) {
-    final Set<String> categories = {};
-    for (var bill in allBills) {
-      categories.add(bill.category);
-    }
-    // Tambahkan 'Semua' di awal
-    return ['Semua', ...categories.toList()];
-  }
-
-
-  // MENGHITUNG RINGKASAN
-  double _totalAmount(List<BillModel> allBills) { 
-    return allBills.fold(0.0, (sum, item) {
-      final amount = double.tryParse(item.amount.replaceAll('.', '').replaceAll(',', '')) ?? 0.0;
-      return sum + amount;
-    });
-  }
-  
-  int _paidCount(List<BillModel> allBills) => allBills.where((bill) => bill.status == 'Paid').length;
-  int _upcomingCount(List<BillModel> allBills) => allBills.where((bill) => bill.status == 'Unpaid Bill').length;
-
-
-  // --- WIDGET KUSTOM ---
-  
-  // Dialog Konfirmasi Pembayaran (Logika tidak berubah)
+  // --- DIALOG KONFIRMASI BAYAR ---
   void _showMarkPaidConfirmationDialog(BuildContext context, BillModel bill) {
-      showDialog(
-        context: context,
-        builder: (BuildContext dialogContext) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: primaryGreen.withOpacity(0.2),
-                    shape: BoxShape.circle,
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: primaryGreen.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_circle_outline,
+                  color: darkGreen,
+                  size: 50,
+                ),
+              ),
+              const SizedBox(height: 15),
+              const Text(
+                'Bayar Tagihan?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Tagihan "${bill.name}" akan ditandai LUNAS.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: textColor.withOpacity(0.7)),
+              ),
+              const SizedBox(height: 30),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: accentGreen,
+                        foregroundColor: textColor,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                      child: const Text('Batal'),
+                    ),
                   ),
-                  child: const Icon(Icons.check_circle_outline, color: darkGreen, size: 50),
-                ),
-                const SizedBox(height: 15),
-                const Text(
-                  'Tandai Sudah Dibayar?',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Tagihan "${bill.name}" akan ditandai sebagai LUNAS. Lanjutkan?',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: textColor.withOpacity(0.7)),
-                ),
-                const SizedBox(height: 30),
-                
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(), // Batalkan
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: accentGreen,
-                          foregroundColor: textColor,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: const Text('Batal'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          context.read<BillProvider>().markBillAsPaid(bill); 
-                          Navigator.of(dialogContext).pop(); 
-                          
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('${bill.name} berhasil ditandai LUNAS!')),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        // 1. Update Status (FIREBASE)
+                        context.read<BillProvider>().markBillAsPaid(bill);
+
+                        // 2. BATALKAN NOTIFIKASI
+                        if (bill.notificationId != null) {
+                          await NotificationService().cancelNotification(
+                            bill.notificationId!,
                           );
-                          // Force rebuild untuk update filter dan daftar
-                          setState(() {}); 
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: darkGreen, 
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                          elevation: 3,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        }
+
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop();
+                        }
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('${bill.name} LUNAS!')),
+                        );
+                        setState(() {});
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: darkGreen,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
                         ),
-                        child: const Text('Bayar'),
                       ),
+                      child: const Text('Bayar'),
                     ),
-                  ],
-                ),
-              ],
-            ),
-            contentPadding: const EdgeInsets.all(20),
-          );
-        },
-      );
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
+  // --- WIDGET BUILDERS ---
 
-  // 1. Header Kustom (Logika tidak berubah)
-  Widget _buildCustomHeader(String userName, String avatarUrl) {
-    return AppBar(
-      automaticallyImplyLeading: false,
-      backgroundColor: Colors.transparent,
-      flexibleSpace: ClipPath(
-        clipper: _SimpleCurveClipper(),
-        child: Container(
-          height: 150,
-          color: primaryGreen, 
-          child: Padding(
-            padding: const EdgeInsets.only(top: 40.0, left: 20.0, right: 20.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const CircleAvatar(radius: 25, backgroundImage: AssetImage('assets/avatar.jpg'), backgroundColor: Colors.white),
-                    const SizedBox(width: 15),
-                    Text('Halo, $userName!', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
-                  ],
+  Widget _buildTopHeader() {
+    return Container(
+      color: primaryGreen,
+      width: double.infinity,
+      padding: const EdgeInsets.only(bottom: 25),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Column(
+            children: [
+              const Text(
+                "Bill Reminder",
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 20,
+                  color: textColor,
+                  letterSpacing: 0.5,
                 ),
-                const SizedBox.shrink(), 
-              ],
-            ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Jangan sampai telat bayar ya!',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: textColor.withOpacity(0.7),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  // 2. Kartu Pengingat Tagihan (Tampilan Default/Kosong - Logika tidak berubah)
-  Widget _buildBillReminderCard() {
-    return Card(
-      color: accentGreen, 
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
-      elevation: 5,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 30.0, horizontal: 20.0),
-        child: Column(
-          children: [
-            Text('BILL REMINDER', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor, letterSpacing: 1.5)),
-            const SizedBox(height: 25),
-            Image.asset('assets/logo.jpg', height: 200, width: 200), 
-            const SizedBox(height: 25),
-            Text('Belum Ada Tagihan yang Disimpan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textColor)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 3. Gelembung Saran (SuggestionBubble - Logika tidak berubah)
-  Widget _buildSuggestionBubble() {
+  Widget _buildSummaryHeader(
+    double totalAmount,
+    int paidCount,
+    int upcomingCount,
+  ) {
     return Container(
-      padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
-        color: accentGreen, 
-        borderRadius: BorderRadius.circular(30.0),
-        border: Border.all(color: primaryGreen, width: 2), 
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: primaryGreen.withOpacity(0.5), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
-      child: const Text(
-        'Yuk tambahkan pengingat tagihan pertamamu supaya tidak lupa membayar tagihan tepat waktu',
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: textColor),
-      ),
-    );
-  }
-
-
-  // 5. Widget Header Ringkasan (Logika tidak berubah)
-  Widget _buildSummaryHeader(double totalAmount, int paidCount, int upcomingCount) {
-    String formattedTotal = totalAmount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.');
-    
-    return Card(
-      color: primaryGreen,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
-      elevation: 5,
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('BILL REMINDER', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
-            const SizedBox(height: 15),
-            
-            Text('Total Tagihan Bulan Ini', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: textColor)),
-            Text('Rp ${formattedTotal}', textAlign: TextAlign.center, style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: textColor)),
-            const SizedBox(height: 10),
-
-            // Progress Bar
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Total Tagihan (Semua)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: textColor.withOpacity(0.6),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatRupiah(totalAmount.toStringAsFixed(0)),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: textColor,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: accentGreen,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${paidCount + upcomingCount} Item',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: darkGreen,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: LinearProgressIndicator(
-                value: (paidCount + upcomingCount) == 0 ? 0 : paidCount / (paidCount + upcomingCount),
-                backgroundColor: accentGreen,
-                valueColor: AlwaysStoppedAnimation<Color>(darkGreen),
-                minHeight: 10,
+                value: (paidCount + upcomingCount) == 0
+                    ? 0
+                    : paidCount / (paidCount + upcomingCount),
+                backgroundColor: Colors.grey.shade100,
+                valueColor: const AlwaysStoppedAnimation<Color>(primaryGreen),
+                minHeight: 8,
               ),
             ),
-            const SizedBox(height: 5),
-            Text('$paidCount dari ${paidCount + upcomingCount} tagihan sudah dibayar', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: textColor)),
-            const SizedBox(height: 15),
-
-            // Tombol Upcoming/Paid (Filter Tabs) & Kalender
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Expanded(child: _buildFilterTab('Upcoming ($upcomingCount)', 'Upcoming', -1)), 
-                const SizedBox(width: 10),
-                Expanded(child: _buildFilterTab('Paid ($paidCount)', 'Paid', -1)), 
-                const SizedBox(width: 15),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: accentGreen, borderRadius: BorderRadius.circular(15)),
-                  child: const Icon(Icons.calendar_month, color: textColor),
-                ), 
-              ],
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                '$paidCount Lunas / $upcomingCount Belum',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: textColor.withOpacity(0.6),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildFilterTab(
+                      'Upcoming ($upcomingCount)',
+                      'Upcoming',
+                    ),
+                  ),
+                  Expanded(child: _buildFilterTab('Paid ($paidCount)', 'Paid')),
+                ],
+              ),
             ),
           ],
         ),
@@ -358,75 +393,203 @@ class _BillReminderScreenState extends State<BillReminderScreen> {
     );
   }
 
-  // FIX LOGIC: targetIndex 0/1 untuk navigasi, -1 untuk filter tab lokal
-  Widget _buildFilterTab(String label, String tabName, int targetIndex) {
+  Widget _buildFilterTab(String label, String tabName) {
     final isSelected = _activeTab == tabName;
-    return ElevatedButton(
-      onPressed: () {
-        if (targetIndex == 0 || targetIndex == 1) {
-             _navigateToDashboardIndex(context, targetIndex);
-             return;
-        }
-        
+    return GestureDetector(
+      onTap: () {
         setState(() {
           _activeTab = tabName;
-          _currentPage = 1; 
-          _selectedCategoryFilter = 'Semua'; 
+          _currentPage = 1;
+          _selectedCategoryFilter = 'Semua';
         });
       },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isSelected ? darkGreen : accentGreen,
-        foregroundColor: isSelected ? Colors.white : textColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        elevation: isSelected ? 3 : 0,
-        padding: const EdgeInsets.symmetric(vertical: 12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                  ),
+                ]
+              : [],
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            color: isSelected ? textColor : Colors.grey,
+          ),
+        ),
       ),
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
     );
   }
 
-  // 6. Widget Search Bar (Diperbarui untuk ChoiceChip)
+  Widget _buildBillItem(BillModel bill) {
+    final isPaid = bill.status == 'Paid';
+    final categoryDetails = _getCategoryDetails(bill.category);
+    final itemIcon = categoryDetails['icon'] as IconData;
+    final itemColor = categoryDetails['color'] as Color;
+    String displayDate = bill.dueDate.split(" ")[0];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: itemColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(itemIcon, color: itemColor, size: 24),
+        ),
+        title: Text(
+          bill.name,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(
+              bill.category,
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    _formatRupiah(bill.amount),
+                    style: const TextStyle(
+                      color: textColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (!isPaid)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'Due: $displayDate',
+                      style: TextStyle(
+                        color: Colors.red.shade700,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+        trailing: isPaid
+            ? const Icon(Icons.check_circle, color: primaryGreen, size: 28)
+            : ElevatedButton(
+                onPressed: () => _showMarkPaidConfirmationDialog(context, bill),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: textColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 0,
+                  ),
+                  minimumSize: const Size(60, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('Bayar', style: TextStyle(fontSize: 12)),
+              ),
+      ),
+    );
+  }
+
   Widget _buildSearchBar(List<BillModel> allBills) {
     final categories = _getUniqueCategories(allBills);
-    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Search Input
         TextFormField(
           controller: _searchController,
-          style: TextStyle(color: textColor),
+          style: const TextStyle(color: Colors.black),
           decoration: InputDecoration(
-            hintText: 'Search bill reminder...',
-            hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
+            hintText: 'Cari tagihan...',
+            hintStyle: TextStyle(color: Colors.grey.shade500),
             filled: true,
-            fillColor: accentGreen,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-            prefixIcon: Icon(Icons.search, color: darkGreen),
-            contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 15),
-            suffixIcon: Icon(Icons.keyboard_arrow_down, color: darkGreen), 
+            fillColor: Colors.white,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(color: primaryGreen),
+            ),
+            prefixIcon: const Icon(Icons.search, color: Colors.grey),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 0,
+              horizontal: 15,
+            ),
           ),
         ),
         const SizedBox(height: 15),
-        
-        // Filter Chips Kategori
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: categories.map((category) {
               final isSelected = _selectedCategoryFilter == category;
               return Padding(
-                padding: const EdgeInsets.only(right: 10),
+                padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
                   label: Text(category),
                   selected: isSelected,
-                  selectedColor: darkGreen,
-                  backgroundColor: accentGreen,
-                  labelStyle: TextStyle(color: isSelected ? Colors.white : darkGreen, fontWeight: FontWeight.bold),
+                  selectedColor: primaryGreen,
+                  backgroundColor: Colors.white,
+                  side: BorderSide(
+                    color: isSelected ? primaryGreen : Colors.grey.shade200,
+                  ),
+                  labelStyle: TextStyle(
+                    color: isSelected ? textColor : Colors.grey,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
                   onSelected: (selected) {
                     setState(() {
                       _selectedCategoryFilter = category;
-                      _currentPage = 1; // Reset halaman saat filter berubah
+                      _currentPage = 1;
                     });
                   },
                 ),
@@ -437,188 +600,161 @@ class _BillReminderScreenState extends State<BillReminderScreen> {
       ],
     );
   }
-  
-  // 3. Widget Item Tagihan (Diperbarui untuk Ikon Kategori)
-  Widget _buildBillItem(BillModel bill) {
-    final isPaid = bill.status == 'Paid';
-    final categoryDetails = _getCategoryDetails(bill.category); // Ambil detail ikon
-    final itemIcon = categoryDetails['icon'] as IconData;
-    final itemColor = categoryDetails['color'] as Color;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 15),
-      color: accentGreen,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      elevation: 2,
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          // FIX: Menggunakan ikon dan warna dari map kategori
-          decoration: BoxDecoration(color: itemColor.withOpacity(0.8), borderRadius: BorderRadius.circular(10)),
-          child: Icon(itemIcon, color: Colors.white), 
-        ),
-        title: Text(bill.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Kategori: ${bill.category}', style: TextStyle(color: textColor.withOpacity(0.7))),
-            Text('Rp. ${bill.amount}', style: TextStyle(color: textColor.withOpacity(0.9), fontWeight: FontWeight.w600)),
-            
-            if (!isPaid) 
-              Text('Due: ${bill.dueDate}', style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600)),
-          ],
-        ),
-        
-        // Tombol Aksi
-        trailing: isPaid
-            ? Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.check_circle, color: darkGreen),
-                    Text(bill.status, style: TextStyle(color: darkGreen, fontSize: 12, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              )
-            : SizedBox(
-                width: 80, 
-                child: ElevatedButton(
-                  onPressed: () => _showMarkPaidConfirmationDialog(context, bill),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: darkGreen, 
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-                  ),
-                  child: const Text('Bayar', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                ),
-              ),
-      ),
-    );
-  }
-
-  // 7. Widget Kontrol Paginasi (Logika tidak berubah)
-  Widget _buildPaginationControls(bool isFirst, bool isLast, int totalItems, int limit) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 15.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          SizedBox(
-            width: 100,
-            child: isFirst ? const SizedBox() : TextButton(
-                    onPressed: _goToPreviousPage,
-                    child: Text('< Prev', style: TextStyle(color: darkGreen, fontWeight: FontWeight.bold)),
-                  ),
-          ),
-          
-          Text('Halaman $_currentPage', style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 14)),
-
-          SizedBox(
-            width: 100,
-            child: isLast ? const SizedBox() : TextButton(
-                    onPressed: _goToNextPage,
-                    child: Text('Next >', textAlign: TextAlign.end, style: TextStyle(color: darkGreen, fontWeight: FontWeight.bold)),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
 
   @override
   Widget build(BuildContext context) {
     final billProvider = context.watch<BillProvider>();
-    final allBills = billProvider.allBills; 
+    final allBills = billProvider.allBills;
 
     final currentFilteredList = _currentFilteredList(allBills);
     final totalFilteredItems = currentFilteredList.length;
     final totalAmount = _totalAmount(allBills);
     final paidCount = _paidCount(allBills);
     final upcomingCount = _upcomingCount(allBills);
-    
+
     final startIndex = (_currentPage - 1) * _maxItemsPerPage;
-    final endIndex = (_currentPage * _maxItemsPerPage).clamp(0, totalFilteredItems);
+    final endIndex = (_currentPage * _maxItemsPerPage).clamp(
+      0,
+      totalFilteredItems,
+    );
     final paginatedItems = currentFilteredList.sublist(startIndex, endIndex);
-    
+
     final isLastPage = endIndex >= totalFilteredItems;
     final isFirstPage = _currentPage == 1;
-    
-    final bool isUserNew = allBills.isEmpty; 
-    
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(100.0),
-        child: _buildCustomHeader('Wildan Adzkia', 'assets/avatar.jpg'),
-      ),
-      
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            
-            if (isUserNew) ...[
-              _buildBillReminderCard(), 
-              const SizedBox(height: 30),
-              _buildSuggestionBubble(),
-            ] 
-            
-            else ...[
-              
-              _buildSummaryHeader(totalAmount, paidCount, upcomingCount),
-              const SizedBox(height: 20),
-              
-              _buildSearchBar(allBills), 
-              const SizedBox(height: 20),
-              
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10.0),
-                child: Text('${_activeTab.toUpperCase()} REMINDERS:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
-              ),
-              
-              if (paginatedItems.isEmpty)
-                 Center(child: Text("Tidak ada tagihan yang cocok di tab ini.", style: TextStyle(color: textColor)))
-              else
-                Column(
-                  children: paginatedItems.map((bill) => _buildBillItem(bill)).toList(),
-                ),
-              
-              if (totalFilteredItems > _maxItemsPerPage)
-                _buildPaginationControls(isFirstPage, isLastPage, totalFilteredItems, _maxItemsPerPage),
-              
-              const SizedBox(height: 50),
-            ]
-          ],
-        ),
-      ),
+    final bool isUserNew = allBills.isEmpty;
 
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Column(
+        children: [
+          _buildTopHeader(),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  if (isUserNew) ...[
+                    Card(
+                      color: accentGreen,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20.0),
+                      ),
+                      elevation: 0,
+                      child: Padding(
+                        padding: const EdgeInsets.all(30.0),
+                        child: Column(
+                          children: [
+                            const Icon(
+                              Icons.receipt_long,
+                              size: 60,
+                              color: darkGreen,
+                            ),
+                            const SizedBox(height: 20),
+                            const Text(
+                              'Belum Ada Tagihan',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Tekan tombol + untuk menambah tagihan',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: textColor.withOpacity(0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    _buildSummaryHeader(totalAmount, paidCount, upcomingCount),
+                    const SizedBox(height: 24),
+                    _buildSearchBar(allBills),
+                    const SizedBox(height: 20),
+                    if (paginatedItems.isEmpty)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(20.0),
+                          child: Text(
+                            "Tidak ada tagihan ditemukan.",
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ),
+                      )
+                    else
+                      Column(
+                        children: paginatedItems
+                            .map((bill) => _buildBillItem(bill))
+                            .toList(),
+                      ),
+                    if (totalFilteredItems > _maxItemsPerPage)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 15.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            SizedBox(
+                              width: 100,
+                              child: isFirstPage
+                                  ? const SizedBox()
+                                  : TextButton(
+                                      onPressed: _goToPreviousPage,
+                                      child: const Text(
+                                        '< Prev',
+                                        style: TextStyle(
+                                          color: darkGreen,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                            Text(
+                              'Halaman $_currentPage',
+                              style: TextStyle(
+                                color: textColor.withOpacity(0.7),
+                                fontSize: 14,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 100,
+                              child: isLastPage
+                                  ? const SizedBox()
+                                  : TextButton(
+                                      onPressed: _goToNextPage,
+                                      child: const Text(
+                                        'Next >',
+                                        textAlign: TextAlign.end,
+                                        style: TextStyle(
+                                          color: darkGreen,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 50),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _navigateToAddReminderScreen,
-        backgroundColor: primaryGreen, 
+        backgroundColor: primaryGreen,
+        elevation: 4,
         shape: const CircleBorder(),
-        child: const Icon(Icons.add, color: Colors.white, size: 30),
+        child: const Icon(Icons.add, color: textColor, size: 30),
       ),
     );
   }
-}
-
-class _SimpleCurveClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    var path = Path();
-    path.lineTo(0, size.height - 20);
-    var controlPoint = Offset(size.width / 2, size.height + 20);
-    var endPoint = Offset(size.width, size.height - 20);
-    path.quadraticBezierTo(controlPoint.dx, controlPoint.dy, endPoint.dx, endPoint.dy);
-    path.lineTo(size.width, 0);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(_SimpleCurveClipper oldClipper) => false;
 }

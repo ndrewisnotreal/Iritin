@@ -7,6 +7,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // WAJIB: Untuk load path foto
 import 'package:iritin/providers/dashboard_provider.dart';
 import 'package:iritin/providers/transaction_provider.dart';
+// FIX: Import AccountProvider untuk akses data rekening
+import 'package:iritin/models/account_provider.dart'; 
 import 'package:iritin/screens/dashboard/analytics_screen.dart';
 import 'package:iritin/screens/dashboard/accounts_screen.dart';
 import 'package:iritin/screens/anggaran/add_anggaran_screen.dart';
@@ -81,6 +83,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final transactionProvider = context.watch<TransactionProvider>();
+    // FIX: Pantau AccountProvider juga
+    final accountProvider = context.watch<AccountProvider>();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -97,7 +101,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildFinanceCards(transactionProvider),
+                  // Kirim kedua provider ke widget finance cards
+                  _buildFinanceCards(transactionProvider, accountProvider),
                   const SizedBox(height: 24),
                   _buildAnalyticsCard(context, transactionProvider),
                   const SizedBox(height: 24),
@@ -207,15 +212,24 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 2. KARTU SALDO & PENGELUARAN
-  Widget _buildFinanceCards(TransactionProvider provider) {
+  // 2. KARTU SALDO & PENGELUARAN (LOGIKA FIX)
+  Widget _buildFinanceCards(TransactionProvider transProvider, AccountProvider accountProvider) {
+    
+    // FIX: Hitung Total Saldo dari semua akun yang ada di AccountProvider
+    double totalSaldo = 0;
+    for (var account in accountProvider.accounts) {
+      // Bersihkan string saldo (hapus "Rp", titik, koma) agar bisa di-parse
+      String cleanSaldo = account.saldo.replaceAll(RegExp(r'[^0-9]'), '');
+      totalSaldo += double.tryParse(cleanSaldo) ?? 0;
+    }
+
     return Row(
       children: [
         Expanded(
           child: _buildCardItem(
-            title: "Saldo",
-            amount: TransactionProvider.formatRupiah(provider.balance),
-            icon: Icons.add_circle_outline,
+            title: "Total Saldo", // Ubah label biar lebih jelas
+            amount: TransactionProvider.formatRupiah(totalSaldo.toInt()), // Gunakan hasil hitungan
+            icon: Icons.account_balance_wallet, // Icon dompet lebih cocok
             bgColor: const Color(0xFF6B7280),
           ),
         ),
@@ -223,7 +237,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Expanded(
           child: _buildCardItem(
             title: "Pengeluaran",
-            amount: TransactionProvider.formatRupiah(provider.totalExpense),
+            amount: TransactionProvider.formatRupiah(transProvider.totalExpense),
             icon: Icons.remove_red_eye_outlined,
             bgColor: const Color(0xFF1F4E5F),
           ),

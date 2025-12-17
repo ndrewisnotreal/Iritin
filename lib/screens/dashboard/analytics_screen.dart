@@ -2,7 +2,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:iritin/providers/dashboard_provider.dart';
-import 'package:iritin/providers/transaction_provider.dart'; // Sumber Data
+import 'package:iritin/providers/transaction_provider.dart';
+import 'package:iritin/models/account_provider.dart'; 
 import 'package:iritin/screens/dashboard/accounts_screen.dart';
 import 'package:iritin/styling/app_colors.dart';
 
@@ -19,26 +20,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. AMBIL DATA DARI PROVIDER
-    final provider = context.watch<TransactionProvider>();
+    // 1. Ambil data dari Provider
+    final transProvider = context.watch<TransactionProvider>();
+    final accountProvider = context.watch<AccountProvider>(); 
 
-    // 2. SIAPKAN DATA STATISTIK
-    // Kita anggap "Total Budget" adalah Total Pemasukan agar masuk akal
-    final totalBudget = provider.totalIncome;
-    final totalExpense = provider.totalExpense;
-    final saldoAkhir = provider.balance;
+    final totalBudget = transProvider.totalIncome;
+    final totalExpense = transProvider.totalExpense;
+    final saldoAkhir = transProvider.balance;
 
-    // 3. SIAPKAN DATA UNTUK CHART & LIST
-    // Filter transaksi berdasarkan tab (0=Pengeluaran, 1=Pemasukan)
-    // Ingat: Di Provider, type 1=Pengeluaran, 0=Pemasukan
+    // 2. Filter data berdasarkan tab aktif
     final int targetType = _selectedTab == 0 ? 1 : 0;
-
-    // Ambil transaksi yang sesuai tab
-    final filteredTrans = provider.transactions
+    final filteredTrans = transProvider.transactions
         .where((t) => t['type'] == targetType)
         .toList();
 
-    // Grouping data per Kategori untuk Chart
+    // 3. Olah data kategori untuk Chart
     final Map<String, double> categoryData = {};
     double totalAmountInTab = 0;
 
@@ -59,7 +55,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // HEADER (Kirim data statistik real)
+            // Header Statistik
             _buildHeader(context, totalBudget, totalExpense, saldoAkhir),
 
             const SizedBox(height: 20),
@@ -67,15 +63,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
             const SizedBox(height: 20),
 
-            // CHART (Kirim data kategori yang sudah diolah)
+            // Bagian Chart dengan Persentase
             _buildChartSection(categoryData, totalAmountInTab),
 
             const SizedBox(height: 20),
 
-            // LIST KATEGORI (Dinamis)
+            // List Kategori Dinamis
             if (categoryData.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(20.0),
+              const Padding(
+                padding: EdgeInsets.all(20.0),
                 child: Text(
                   "Belum ada data untuk ditampilkan",
                   style: TextStyle(color: Colors.grey),
@@ -84,10 +80,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             else
               _buildCategoryList(categoryData, totalAmountInTab),
 
-            // Bagian Akun Rekening (Hanya muncul di tab Pemasukan)
+            // Bagian Akun Rekening Real (Hanya muncul di tab Pemasukan)
             if (_selectedTab == 1) ...[
               const SizedBox(height: 24),
-              _buildAccountSection(context),
+              _buildAccountSection(context, accountProvider.accounts),
             ],
 
             const SizedBox(height: 40),
@@ -97,18 +93,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  // --- 1. HEADER DINAMIS ---
-  Widget _buildHeader(
-    BuildContext context,
-    int budget,
-    int expense,
-    int saldo,
-  ) {
-    // Hitung persentase sisa saldo untuk progress bar
-    // Hati-hati pembagian dengan 0
+  // --- 1. HEADER ---
+  Widget _buildHeader(BuildContext context, int budget, int expense, int saldo) {
     double progress = (budget == 0) ? 0 : (saldo / budget);
-    if (progress < 0) progress = 0; // Jangan minus
-    if (progress > 1) progress = 1; // Jangan lebih dari 100%
+    if (progress < 0) progress = 0;
+    if (progress > 1) progress = 1;
 
     return Container(
       padding: const EdgeInsets.only(top: 50, left: 20, right: 20, bottom: 30),
@@ -138,20 +127,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           const SizedBox(height: 20),
           const Text(
             "Overview Analytics",
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
-          // Teks Saldo Dinamis
           Text(
             "Tersisa ${TransactionProvider.formatRupiah(saldo)} dari ${TransactionProvider.formatRupiah(budget)}",
             style: const TextStyle(fontSize: 12, color: Colors.black87),
           ),
           const SizedBox(height: 15),
-
-          // Progress Bar Dinamis
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
@@ -162,26 +144,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             ),
           ),
           const SizedBox(height: 20),
-
-          // Statistik 3 Kolom
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildStatItem(
-                "Total Pemasukan",
-                TransactionProvider.formatRupiah(budget),
-                Colors.purple,
-              ),
-              _buildStatItem(
-                "Total Pengeluaran",
-                TransactionProvider.formatRupiah(expense),
-                Colors.red,
-              ),
-              _buildStatItem(
-                "Saldo Akhir",
-                TransactionProvider.formatRupiah(saldo),
-                Colors.blue,
-              ),
+              _buildStatItem("Total Pemasukan", TransactionProvider.formatRupiah(budget), Colors.purple),
+              _buildStatItem("Total Pengeluaran", TransactionProvider.formatRupiah(expense), Colors.red),
+              _buildStatItem("Saldo Akhir", TransactionProvider.formatRupiah(saldo), Colors.blue),
             ],
           ),
         ],
@@ -191,65 +159,50 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   Widget _buildStatItem(String label, String value, Color color) {
     return Expanded(
-      // Pakai Expanded biar gak overflow kalau angkanya panjang
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              color: color,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              color: color.withOpacity(0.8),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text(value, style: TextStyle(fontSize: 12, color: color.withOpacity(0.8), fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 
-  // --- 2. CHART DINAMIS ---
+  // --- 2. CHART DENGAN PERSENTASE ---
   Widget _buildChartSection(Map<String, double> data, double total) {
-    if (total == 0) {
-      return const SizedBox(
-        height: 200,
-        child: Center(child: Text("Belum ada transaksi")),
-      );
-    }
+    if (total == 0) return const SizedBox(height: 200, child: Center(child: Text("Belum ada transaksi")));
 
-    // Warna-warna untuk chart
     final List<Color> colors = [
-      const Color(0xFFF06292), // Pink
-      const Color(0xFF4FC3F7), // Biru Muda
-      const Color(0xFFFFB74D), // Orange
-      const Color(0xFF9575CD), // Ungu
-      const Color(0xFF4DB6AC), // Teal
+      const Color(0xFFF06292),
+      const Color(0xFF4FC3F7),
+      const Color(0xFFFFB74D),
+      const Color(0xFF9575CD),
+      const Color(0xFF4DB6AC),
       Colors.lime,
       Colors.indigo,
     ];
 
     int colorIndex = 0;
-
-    // Buat Section Chart dari Data Map
     List<PieChartSectionData> sections = [];
 
     data.forEach((key, value) {
-      final percentage = (value / total) * 100;
+      final double percentage = (value / total) * 100;
       sections.add(
         PieChartSectionData(
           color: colors[colorIndex % colors.length],
-          value: percentage,
+          value: value,
           radius: 80,
-          showTitle: false,
+          showTitle: true,
+          title: "${percentage.toStringAsFixed(1)}%",
+          titleStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            shadows: [Shadow(color: Colors.black26, blurRadius: 2)],
+          ),
+          titlePositionPercentageOffset: 0.5,
         ),
       );
       colorIndex++;
@@ -261,27 +214,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         children: [
           Expanded(
             flex: 2,
-            child: PieChart(
-              PieChartData(
-                sectionsSpace: 2,
-                centerSpaceRadius: 0,
-                sections: sections,
-              ),
-            ),
+            child: PieChart(PieChartData(sectionsSpace: 2, centerSpaceRadius: 0, sections: sections)),
           ),
-          // Legend (Keterangan Warna)
           Expanded(
             flex: 1,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: data.keys.toList().asMap().entries.map((entry) {
-                int idx = entry.key;
-                String name = entry.value;
-                return _LegendItem(
-                  color: colors[idx % colors.length],
-                  text: name,
-                );
+                return _LegendItem(color: colors[entry.key % colors.length], text: entry.value);
               }).toList(),
             ),
           ),
@@ -290,69 +231,83 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  // --- 3. LIST KATEGORI DINAMIS ---
-  Widget _buildCategoryList(Map<String, double> data, double total) {
-    // Ubah Map ke List biar bisa di-sort (terbesar di atas)
-    var sortedEntries = data.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: sortedEntries.map((entry) {
-          double percentage = entry.value / total;
-          return _buildCategoryItem(
-            entry.key,
-            percentage,
-            "${TransactionProvider.formatRupiah(entry.value.toInt())} / ${TransactionProvider.formatRupiah(total.toInt())}",
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildCategoryItem(String title, double percent, String amount) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+  // --- 3. AKUN REKENING REAL ---
+  Widget _buildAccountSection(BuildContext context, List<AccountModel> accounts) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-              Text(
-                amount,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              const Text("Akun Rekening", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              GestureDetector(
+                // PERBAIKAN DI SINI: Gunakan Navigator.push agar tombol back di AccountsScreen bekerja
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AccountsScreen()),
+                ),
+                child: const Text("Lihat semua >", style: TextStyle(color: Colors.blue)),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: percent,
-              minHeight: 8,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                AppColors.primary,
-              ),
+        ),
+        const SizedBox(height: 16),
+        if (accounts.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Text("Belum ada akun rekening.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+          )
+        else
+          SizedBox(
+            height: 160,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              scrollDirection: Axis.horizontal,
+              itemCount: accounts.length,
+              itemBuilder: (context, index) {
+                final acc = accounts[index];
+                return Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: _buildAccountCard(acc.title, acc.saldo, acc.colors),
+                );
+              },
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _buildAccountCard(String title, String saldo, List<Color> colors) {
+    return Container(
+      width: 260,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: colors.isNotEmpty ? colors : [const Color(0xFF8E2DE2), const Color(0xFF4A00E0)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          Text("Saldo: $saldo", style: const TextStyle(color: Colors.white70, fontSize: 12)),
         ],
       ),
     );
   }
 
-  // --- WIDGET LAINNYA (Tetap sama) ---
+  // --- TOGGLE & LIST ITEM ---
   Widget _buildToggleSwitch() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(50),
-      ),
+      decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(50)),
       child: Row(
         children: [
           Expanded(child: _buildToggleButton("Pengeluaran", 0)),
@@ -371,104 +326,47 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(50),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                  ),
-                ]
-              : [],
+          boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)] : [],
         ),
-        child: Center(
-          child: Text(
-            text,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: isSelected ? Colors.black : Colors.grey,
-            ),
-          ),
-        ),
+        child: Center(child: Text(text, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.black : Colors.grey))),
       ),
     );
   }
 
-  Widget _buildAccountSection(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "Akun Rekening",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              GestureDetector(
-                onTap: () {
-                  context.read<DashboardProvider>().openSubPage(
-                    const AccountsScreen(),
-                  );
-                },
-                child: const Text(
-                  "Lihat semua >",
-                  style: TextStyle(color: Colors.blue),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 160,
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            scrollDirection: Axis.horizontal,
-            children: [
-              _buildAccountCard("Cash", "Rp2.000.000", const [
-                Color(0xFF8E2DE2),
-                Color(0xFF4A00E0),
-              ]),
-              const SizedBox(width: 16),
-              _buildAccountCard("Dompet Digital", "Rp3.000.000", const [
-                Color(0xFF000428),
-                Color(0xFF004e92),
-              ]),
-            ],
-          ),
-        ),
-      ],
+  Widget _buildCategoryList(Map<String, double> data, double total) {
+    var sortedEntries = data.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: sortedEntries.map((entry) {
+          return _buildCategoryItem(entry.key, entry.value / total, "${TransactionProvider.formatRupiah(entry.value.toInt())}");
+        }).toList(),
+      ),
     );
   }
 
-  Widget _buildAccountCard(String title, String saldo, List<Color> colors) {
-    return Container(
-      width: 260,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: colors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
+  Widget _buildCategoryItem(String title, double percent, String amount) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text(amount, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
           ),
-          Text(
-            "Saldo: $saldo",
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: percent,
+              minHeight: 8,
+              backgroundColor: Colors.grey.shade200,
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
           ),
         ],
       ),
@@ -480,18 +378,11 @@ class _LegendItem extends StatelessWidget {
   final Color color;
   final String text;
   const _LegendItem({required this.color, required this.text});
-
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          CircleAvatar(backgroundColor: color, radius: 3),
-          const SizedBox(width: 6),
-          Text(text, style: const TextStyle(fontSize: 10)),
-        ],
-      ),
+      child: Row(children: [CircleAvatar(backgroundColor: color, radius: 3), const SizedBox(width: 6), Text(text, style: const TextStyle(fontSize: 10))]),
     );
   }
 }

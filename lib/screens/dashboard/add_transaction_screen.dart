@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; 
-import 'package:iritin/providers/transaction_provider.dart'; 
+import 'package:provider/provider.dart';
+import 'package:iritin/providers/transaction_provider.dart';
+import 'package:iritin/models/account_provider.dart'; // Wajib Import
+import 'package:iritin/models/account_provider.dart' show AccountModel;
 import 'package:iritin/styling/app_colors.dart';
+import 'dart:ui'; // Untuk efek blur
+import 'package:iritin/screens/dashboard/add_account_screen.dart';
+import 'package:iritin/screens/dashboard/accounts_screen.dart';
 
-// Model untuk menampung data kategori dan ikonnya
 class CategoryItem {
   final String name;
   final IconData icon;
   final Color color;
-
   CategoryItem({required this.name, required this.icon, required this.color});
 }
 
@@ -20,17 +23,14 @@ class AddTransactionScreen extends StatefulWidget {
 }
 
 class _AddTransactionScreenState extends State<AddTransactionScreen> {
-  
-  // 0 = Pemasukan, 1 = Pengeluaran
-  int _transactionType = 1;
+  int _transactionType = 1; // 0 = Pemasukan, 1 = Pengeluaran
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
-  
-  // State untuk Dropdown yang dipilih
+
   CategoryItem? _selectedCategory;
+  AccountModel? _selectedAccount; 
 
-  // --- DEFINISI KATEGORI ---
-
+  // --- DATA KATEGORI ---
   final List<CategoryItem> _expenseCategories = [
     CategoryItem(name: 'Pendidikan', icon: Icons.school, color: Colors.blue),
     CategoryItem(name: 'Makanan', icon: Icons.restaurant, color: Colors.red),
@@ -40,8 +40,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     CategoryItem(name: 'Tagihan', icon: Icons.lightbulb, color: Colors.brown),
     CategoryItem(name: 'Lainnya', icon: Icons.more_horiz, color: Colors.grey),
   ];
-  
-  // BARU: Data Kategori Pemasukan
+
   final List<CategoryItem> _incomeCategories = [
     CategoryItem(name: 'Upah', icon: Icons.payments, color: Colors.green.shade700),
     CategoryItem(name: 'Bisnis', icon: Icons.store, color: Colors.teal),
@@ -50,43 +49,180 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     CategoryItem(name: 'Lainnya', icon: Icons.more_horiz, color: Colors.grey),
   ];
 
-  // Getter yang memilih List kategori berdasarkan tipe transaksi
-  List<CategoryItem> get _currentCategories {
-    return _transactionType == 1 ? _expenseCategories : _incomeCategories;
-  }
-  
+  List<CategoryItem> get _currentCategories => _transactionType == 1 ? _expenseCategories : _incomeCategories;
+
   @override
   void initState() {
     super.initState();
-    // Set kategori default ke item pertama saat inisialisasi (Pengeluaran)
     _selectedCategory = _expenseCategories.first;
   }
-  
-  // Override setState untuk reset kategori saat tipe transaksi diubah
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    final accountProvider = context.read<AccountProvider>();
+    
+    // Cek otomatis saat halaman dibuka: Apakah User punya rekening?
+    if (accountProvider.accounts.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showNoAccountDialog();
+      });
+    } else if (_selectedAccount == null) {
+      // Auto-select rekening pertama jika belum ada yg dipilih
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          _selectedAccount = accountProvider.accounts.first;
+        });
+      });
+    }
+  }
+
   void _setTransactionType(int newType) {
     if (_transactionType != newType) {
       setState(() {
         _transactionType = newType;
-        // Reset kategori yang dipilih agar sesuai dengan tipe yang baru
         _selectedCategory = _currentCategories.first;
       });
     }
   }
 
+  // --- POP-UP DIALOG (NAVIGASI DIPERBAIKI) ---
+  void _showNoAccountDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.warning_rounded, size: 50, color: Colors.red),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Tambahkan rekening Anda",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2E4053)),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Anda perlu memiliki minimal satu rekening untuk mencatat transaksi.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      // TOMBOL KEMBALI (FIXED: Close Dialog & Screen)
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey.shade200,
+                            foregroundColor: Colors.black,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context); // Tutup Dialog
+                            Navigator.pop(context); // Tutup Halaman Add Transaction
+                          },
+                          child: const Text("Kembali"),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // TOMBOL TAMBAH (FIXED: Redirect ke AddAccount)
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF558B2F),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context); // Tutup dialog
+                            // Ganti halaman transaksi dengan halaman tambah akun
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (context) => const AddAccountScreen()),
+                            );
+                          },
+                          child: const Text("Tambah"),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // --- LOGIKA SIMPAN UTAMA ---
+  void _addTransactionToProvider() {
+    if (_amountController.text.isEmpty || _selectedCategory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Jumlah dan Kategori harus diisi!")),
+      );
+      return;
+    }
+
+    if (_selectedAccount == null) {
+      _showNoAccountDialog();
+      return;
+    }
+
+    String cleanAmount = _amountController.text.replaceAll('.', '').replaceAll(',', '');
+    int amount = int.tryParse(cleanAmount) ?? 0;
+    if (amount <= 0) return;
+
+    // 1. UPDATE SALDO DI ACCOUNT PROVIDER
+    double amountDouble = amount.toDouble();
+    // Kalau Pengeluaran (1) -> Negatif, Pemasukan (0) -> Positif
+    double balanceChange = (_transactionType == 1) ? -amountDouble : amountDouble;
+
+    context.read<AccountProvider>().updateAccountBalance(
+      _selectedAccount!.id,
+      balanceChange
+    );
+
+    // 2. SIMPAN TRANSAKSI DI TRANSACTION PROVIDER
+    context.read<TransactionProvider>().addTransaction(
+      type: _transactionType,
+      amount: amount,
+      category: _selectedCategory!.name,
+      desc: _descController.text,
+      account: _selectedAccount!.title, // Kirim Nama Rekening
+    );
+
+    Navigator.pop(context);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final accountProvider = context.watch<AccountProvider>();
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // 1. HEADER
             _buildHeader(context),
-
-            // 2. FORM BODY
             Transform.translate(
-              offset: const Offset(0, -40),
+              offset: const Offset(0, -20),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Container(
@@ -97,7 +233,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     borderRadius: BorderRadius.circular(30),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.15),
+                        color: Colors.grey.withOpacity(0.1),
                         blurRadius: 20,
                         spreadRadius: 5,
                         offset: const Offset(0, 10),
@@ -107,18 +243,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   child: Column(
                     children: [
                       const Text(
-                        "DETAILS",
+                        "DETAIL TRANSAKSI",
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
+                          color: Colors.grey,
                           letterSpacing: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 24),
-
+                      const SizedBox(height: 20),
                       _buildTypeToggle(),
                       const SizedBox(height: 24),
-
                       _buildInputLabel("Jumlah Nominal"),
                       _buildTextField(
                         controller: _amountController,
@@ -127,22 +262,23 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         icon: Icons.attach_money,
                       ),
                       const SizedBox(height: 16),
-
                       _buildInputLabel("Kategori Transaksi"),
-                      // Dropdown Kategori
                       _buildCategoryDropdown(),
+                      const SizedBox(height: 16),
+
+                      // DROPDOWN REKENING
+                      _buildInputLabel("Pilih Rekening"),
+                      _buildAccountDropdown(accountProvider.accounts),
                       const SizedBox(height: 16),
 
                       _buildInputLabel("Deskripsi"),
                       _buildTextField(
                         controller: _descController,
-                        hint: "Detail transaksi...",
+                        hint: "Contoh: Beli Makan Siang",
                         icon: Icons.notes,
-                        maxLines: 3,
+                        maxLines: 1,
                       ),
                       const SizedBox(height: 32),
-
-                      // Tombol Action
                       _buildActionButtons(context),
                     ],
                   ),
@@ -155,13 +291,26 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
   }
 
-  // WIDGET DROPDOWN BARU
-  Widget _buildCategoryDropdown() {
-    // Pastikan _currentCategories tidak kosong sebelum membangun Dropdown
-    if (_currentCategories.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        child: const Text("Tidak ada kategori tersedia."),
+  // --- WIDGET DROPDOWN REKENING ---
+  Widget _buildAccountDropdown(List<AccountModel> accounts) {
+    if (accounts.isEmpty) {
+      return GestureDetector(
+        onTap: _showNoAccountDialog,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F6FA),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.red.shade200),
+          ),
+          child: Row(
+            children: const [
+              Icon(Icons.warning, color: Colors.red),
+              SizedBox(width: 10),
+              Text("Rekening tidak tersedia. Klik untuk tambah.", style: TextStyle(color: Colors.red, fontSize: 12)),
+            ],
+          ),
+        ),
       );
     }
 
@@ -172,95 +321,120 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         borderRadius: BorderRadius.circular(16),
       ),
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<CategoryItem>(
+        child: DropdownButton<AccountModel>(
           isExpanded: true,
-          // Value harus ada dalam list items saat ini
-          value: _selectedCategory, 
-          hint: const Text("Pilih Kategori"),
+          value: _selectedAccount,
+          hint: const Text("Pilih Akun Rekening"),
           icon: const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
-          items: _currentCategories.map((CategoryItem category) {
-            return DropdownMenuItem<CategoryItem>(
-              value: category,
+          items: accounts.map((AccountModel account) {
+            return DropdownMenuItem<AccountModel>(
+              value: account,
               child: Row(
                 children: [
-                  // Ikon Kategori
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: category.color,
+                      color: account.colors.isNotEmpty ? account.colors[0] : Colors.blue,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Icon(category.icon, color: Colors.white, size: 20),
+                    child: const Icon(Icons.credit_card, color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 12),
-                  // Nama Kategori
-                  Text(category.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          account.title,
+                          style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF2E4053)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          account.saldo,
+                          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             );
           }).toList(),
-          onChanged: (CategoryItem? newValue) {
-            setState(() {
-              _selectedCategory = newValue;
-            });
-          },
+          onChanged: (newValue) => setState(() => _selectedAccount = newValue),
         ),
       ),
     );
   }
 
-
-  Widget _buildHeader(BuildContext context) {
+  // --- WIDGET HELPER LAINNYA ---
+  Widget _buildCategoryDropdown() {
+    if (_currentCategories.isEmpty) return const SizedBox();
     return Container(
-      padding: const EdgeInsets.only(top: 60, left: 20, right: 20, bottom: 60),
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(40),
-          bottomRight: Radius.circular(40),
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F6FA),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              const CircleAvatar(
-                radius: 22,
-                backgroundColor: Colors.grey,
-                backgroundImage: NetworkImage(
-                  'https://i.pravatar.cc/150?img=11',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    "Halo,",
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<CategoryItem>(
+          isExpanded: true,
+          value: _selectedCategory,
+          hint: const Text("Pilih Kategori"),
+          icon: const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
+          items: _currentCategories.map((category) {
+            return DropdownMenuItem<CategoryItem>(
+              value: category,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Icon(category.icon, color: category.color, size: 18),
                   ),
+                  const SizedBox(width: 12),
                   Text(
-                    "Wildan Adzkia!",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    category.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF2E4053)),
                   ),
                 ],
               ),
+            );
+          }).toList(),
+          onChanged: (newValue) => setState(() => _selectedCategory = newValue),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: AppColors.primary,
+      padding: const EdgeInsets.only(bottom: 40),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), shape: BoxShape.circle),
+                  child: const Icon(Icons.arrow_back, color: Color(0xFF2E4053)),
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Text("Add Transaction", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2E4053))),
             ],
           ),
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.close, color: Colors.black87),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -268,13 +442,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Widget _buildTypeToggle() {
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(16),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFFF5F6FA), borderRadius: BorderRadius.circular(16)),
       child: Row(
         children: [
-          // FIX: Memanggil _setTransactionType
           _buildToggleOption("Pemasukan", 0, Colors.blue),
           _buildToggleOption("Pengeluaran", 1, Colors.red),
         ],
@@ -286,7 +456,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     bool isSelected = _transactionType == index;
     return Expanded(
       child: GestureDetector(
-        // FIX: Memanggil fungsi setter baru
         onTap: () => _setTransactionType(index),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -297,8 +466,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: activeColor.withOpacity(0.2),
-                      blurRadius: 8,
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
                   ]
@@ -329,122 +498,31 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
   }
 
-  Widget _buildInputLabel(String label) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 8, left: 4),
-        child: Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-            color: Colors.black87,
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _buildInputLabel(String label) => Align(alignment: Alignment.centerLeft, child: Padding(padding: const EdgeInsets.only(bottom: 8, left: 4), child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.black87))));
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hint,
-    IconData? icon,
-    int maxLines = 1,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
+  Widget _buildTextField({required TextEditingController controller, required String hint, IconData? icon, int maxLines = 1, TextInputType keyboardType = TextInputType.text}) {
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F6FA),
-        borderRadius: BorderRadius.circular(16),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFFF5F6FA), borderRadius: BorderRadius.circular(16)),
       child: TextField(
         controller: controller,
         maxLines: maxLines,
         keyboardType: keyboardType,
-        decoration: InputDecoration(
-          prefixIcon: icon != null ? Icon(icon, color: Colors.grey) : null,
-          hintText: hint,
-          hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 16,
-          ),
-        ),
+        style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF2E4053)),
+        decoration: InputDecoration(prefixIcon: Icon(icon, color: Colors.grey), hintText: hint, border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16)),
       ),
     );
-  }
-
-  void _addTransactionToProvider() {
-    // 1. Validasi Input
-    if (_amountController.text.isEmpty || _selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Jumlah dan Kategori harus diisi!")),
-      );
-      return;
-    }
-
-    // 2. Parse Data
-    int amount = int.tryParse(_amountController.text) ?? 0;
-    String categoryName = _selectedCategory!.name;
-    String desc = _descController.text;
-
-    // 3. SIMPAN KE PROVIDER
-    context.read<TransactionProvider>().addTransaction(
-      type: _transactionType,
-      amount: amount,
-      category: categoryName,
-      desc: desc,
-      // Catatan: Pastikan model transaksi di provider Anda mendukung penyimpanan ikon/warna jika diperlukan di halaman detail
-    );
-
-    // 4. Tutup Halaman
-    Navigator.pop(context);
   }
 
   Widget _buildActionButtons(BuildContext context) {
     return Column(
       children: [
-        // TOMBOL SIMPAN
         SizedBox(
           width: double.infinity,
           height: 55,
           child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.black,
-              elevation: 5,
-              shadowColor: AppColors.primary.withOpacity(0.4),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.black, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
             onPressed: _addTransactionToProvider,
-            child: const Text(
-              "Transaksi Baru",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // TOMBOL BATAL
-        SizedBox(
-          width: double.infinity,
-          height: 55,
-          child: TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              "Batalkan",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+            child: const Text("Simpan Transaksi", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ),
         ),
       ],

@@ -1,71 +1,108 @@
+import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 class NotificationService {
-  // Singleton pattern (biar satu instance dipake rame-rame)
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+  final FlutterLocalNotificationsPlugin notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
-  // 1. Inisialisasi (Dipanggil saat aplikasi baru buka)
+  // --- 1. FUNGSI INIT ---
   Future<void> init() async {
-    // Settingan Android (Gambar icon default)
-    // Pastikan ada file 'app_icon' atau gunakan '@mipmap/ic_launcher' (icon default flutter)
+    tz.initializeTimeZones();
+
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
+    const DarwinInitializationSettings initializationSettingsDarwin =
+        DarwinInitializationSettings();
 
-    await flutterLocalNotificationsPlugin.initialize(
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
+          android: initializationSettingsAndroid,
+          iOS: initializationSettingsDarwin,
+        );
+
+    await notificationsPlugin.initialize(
       initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        // Aksi kalau notifikasi diklik (bisa dikosongin dulu buat demo)
-        print("Notifikasi diklik: ${response.payload}");
+      onDidReceiveNotificationResponse: (details) {
+        // Aksi klik notifikasi
       },
+    );
+
+    requestPermissions();
+  }
+
+  // Request Permission
+  void requestPermissions() {
+    notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestNotificationsPermission();
+  }
+
+  // --- 2. FUNGSI JADWAL NOTIFIKASI ---
+  Future<void> scheduleNotification({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledTime,
+  }) async {
+    // Validasi waktu
+    if (scheduledTime.isBefore(DateTime.now())) {
+      return;
+    }
+
+    await notificationsPlugin.zonedSchedule(
+      id,
+      title,
+      body,
+      tz.TZDateTime.from(scheduledTime, tz.local),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'bill_channel_id',
+          'Bill Reminders',
+          channelDescription: 'Notifikasi untuk pengingat tagihan',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      // Mode Aman (Anti-Crash)
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
-  // 2. Minta Izin Notifikasi (Khusus Android 13+)
-  Future<void> requestPermissions() async {
-    // Cek apakah permission sudah diberikan
-    var status = await Permission.notification.status;
-    if (status.isDenied) {
-      // Kalau belum, minta izin (Nanti muncul Popup "Allow Iritin to send notifications?")
-      await Permission.notification.request();
-    }
-  }
-
-  // 3. Tampilkan Notifikasi DEMO (Langsung Muncul)
+  // --- 3. FUNGSI DEMO ---
   Future<void> showDemoNotification({
     required int id,
     required String title,
     required String body,
   }) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-          'bill_channel_id', // ID Channel unik
-          'Bill Reminders', // Nama Channel yang muncul di setting HP
-          channelDescription: 'Notifikasi untuk pengingat tagihan',
-          importance:
-              Importance.max, // MAX biar muncul pop-up di atas layar (Heads Up)
-          priority: Priority.high,
-          showWhen: true,
-          icon: '@mipmap/ic_launcher',
-        );
-
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-    );
-
-    await flutterLocalNotificationsPlugin.show(
+    await notificationsPlugin.show(
       id,
       title,
       body,
-      platformChannelSpecifics,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'bill_channel_id',
+          'Bill Reminders',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+      ),
     );
+  }
+
+  // --- 4. FUNGSI BATALKAN NOTIFIKASI (INI YANG KURANG TADI) ---
+  Future<void> cancelNotification(int id) async {
+    await notificationsPlugin.cancel(id);
   }
 }
