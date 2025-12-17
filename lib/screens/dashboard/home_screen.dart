@@ -1,8 +1,10 @@
+import 'dart:io'; // WAJIB: Untuk baca File foto
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // WAJIB: Untuk load path foto
 import 'package:iritin/providers/dashboard_provider.dart';
 import 'package:iritin/providers/transaction_provider.dart';
 import 'package:iritin/screens/dashboard/analytics_screen.dart';
@@ -22,41 +24,58 @@ class AppColors {
   static const Color primaryDark = accentGreen;
 }
 
-class HomeScreen extends StatelessWidget {
+// UBAH JADI STATEFUL WIDGET (Agar bisa load foto lokal)
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
-  // --- LOGIC: Hitung Data Mingguan (Senin-Minggu) ---
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  String? _localImagePath; // Variabel simpan path foto
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocalImage(); // Load foto saat aplikasi dibuka
+  }
+
+  // Fungsi Load Foto dari SharedPreferences
+  Future<void> _loadLocalImage() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _localImagePath = prefs.getString('profile_image_${user.uid}');
+      });
+    }
+  }
+
+  // --- LOGIC: Hitung Data Mingguan ---
   List<FlSpot> _getWeeklySpots(List<Map<String, dynamic>> transactions) {
     List<double> weeklyTotals = List.filled(7, 0.0);
-
     DateTime now = DateTime.now();
-    // Cari tanggal hari Senin minggu ini
     DateTime monday = now.subtract(Duration(days: now.weekday - 1));
-    monday = DateTime(
-      monday.year,
-      monday.month,
-      monday.day,
-    ); // Reset jam ke 00:00
+    monday = DateTime(monday.year, monday.month, monday.day);
 
     for (var tx in transactions) {
-      // Hanya ambil Pengeluaran (Type 1)
       if (tx['type'] == 1) {
         try {
           DateTime txDate = DateFormat('dd/MM/yyyy').parse(tx['date']);
           int diffDays = txDate.difference(monday).inDays;
-
           if (diffDays >= 0 && diffDays < 7) {
             weeklyTotals[diffDays] += (tx['amount'] as num).toDouble();
           }
         } catch (e) {
-          // Ignore error parsing
+          // Ignore error
         }
       }
     }
-
-    return List.generate(7, (index) {
-      return FlSpot(index.toDouble(), weeklyTotals[index]);
-    });
+    return List.generate(
+      7,
+      (index) => FlSpot(index.toDouble(), weeklyTotals[index]),
+    );
   }
 
   @override
@@ -69,7 +88,9 @@ class HomeScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // HEADER (Desain Rounded Corner + Foto Lokal)
             _buildHeader(context),
+
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -78,20 +99,12 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   _buildFinanceCards(transactionProvider),
                   const SizedBox(height: 24),
-
-                  // Analytics Card (Grafik Mingguan)
                   _buildAnalyticsCard(context, transactionProvider),
-
                   const SizedBox(height: 24),
-
-                  // Riwayat Transaksi
                   _buildTransactionHistorySection(transactionProvider),
                   const SizedBox(height: 24),
-
-                  // Fitur Lainnya
                   _buildMoreFeatures(context),
-
-                  const SizedBox(height: 100), // Spasi bawah untuk navigasi
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
@@ -101,7 +114,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // 1. HEADER (DINAMIS FIREBASE AUTH)
+  // 1. HEADER (KEMBALI KE DESAIN AWAL + LOGIKA FOTO)
   Widget _buildHeader(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     String displayName = "Pengguna";
@@ -115,27 +128,34 @@ class HomeScreen extends StatelessWidget {
         String emailName = user.email!.split('@')[0];
         displayName = emailName[0].toUpperCase() + emailName.substring(1);
       }
-
       List<String> words = displayName.trim().split(" ");
       if (words.isNotEmpty) {
         initials = words[0][0].toUpperCase();
-        if (words.length > 1) {
-          initials += words[1][0].toUpperCase();
-        }
+        if (words.length > 1) initials += words[1][0].toUpperCase();
       }
     }
 
+    // LOGIKA GAMBAR: Lokal > Firebase > Inisial
+    ImageProvider? backgroundImage;
+    if (_localImagePath != null) {
+      backgroundImage = FileImage(File(_localImagePath!));
+    } else if (photoUrl != null) {
+      backgroundImage = NetworkImage(photoUrl);
+    }
+
+    // KEMBALI MENGGUNAKAN CONTAINER & BORDER RADIUS (BUKAN CLIPPATH)
     return Container(
       padding: const EdgeInsets.only(top: 60, left: 20, right: 20, bottom: 30),
       decoration: const BoxDecoration(
         color: AppColors.primary,
         borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
+          bottomLeft: Radius.circular(30), // Lengkungan Sudut Kiri
+          bottomRight: Radius.circular(30), // Lengkungan Sudut Kanan
         ),
       ),
       child: Row(
         children: [
+          // PROFILE PICTURE
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
@@ -143,21 +163,24 @@ class HomeScreen extends StatelessWidget {
             ),
             child: CircleAvatar(
               radius: 28,
-              backgroundColor: const Color(0xFFF0F0F0),
-              backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-              child: photoUrl == null
+              backgroundColor: Colors.white,
+              backgroundImage:
+                  backgroundImage, // Pakai gambar yang sudah diload
+              child: backgroundImage == null
                   ? Text(
                       initials,
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.primaryDark,
+                        color: textColor,
                       ),
                     )
                   : null,
             ),
           ),
           const SizedBox(width: 16),
+
+          // WELCOME TEXT
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,7 +190,7 @@ class HomeScreen extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: textColor,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -178,23 +201,6 @@ class HomeScreen extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          Stack(
-            children: [
-              const Icon(Icons.notifications_outlined, size: 28),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -226,15 +232,12 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // 3. ANALYTICS CARD (FIXED VERSION)
+  // 3. ANALYTICS CARD
   Widget _buildAnalyticsCard(
     BuildContext context,
     TransactionProvider provider,
   ) {
-    // A. Siapkan Data
     final List<FlSpot> spots = _getWeeklySpots(provider.transactions);
-
-    // B. Hitung Batas Atas Grafik
     double maxY = 0;
     for (var spot in spots) {
       if (spot.y > maxY) maxY = spot.y;
@@ -242,9 +245,9 @@ class HomeScreen extends StatelessWidget {
     maxY = maxY == 0 ? 100 : maxY * 1.2;
 
     return GestureDetector(
-      onTap: () {
-        context.read<DashboardProvider>().openSubPage(const AnalyticsScreen());
-      },
+      onTap: () => context.read<DashboardProvider>().openSubPage(
+        const AnalyticsScreen(),
+      ),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
@@ -263,7 +266,6 @@ class HomeScreen extends StatelessWidget {
         ),
         child: Column(
           children: [
-            // Header Card
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -295,8 +297,6 @@ class HomeScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-
-            // CHART AREA
             AspectRatio(
               aspectRatio: 1.70,
               child: LineChart(
@@ -304,13 +304,11 @@ class HomeScreen extends StatelessWidget {
                   gridData: FlGridData(
                     show: true,
                     drawVerticalLine: false,
-                    getDrawingHorizontalLine: (value) {
-                      return FlLine(
-                        color: Colors.grey.withOpacity(0.3),
-                        strokeWidth: 1,
-                        dashArray: [5, 5],
-                      );
-                    },
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: Colors.grey.withOpacity(0.3),
+                      strokeWidth: 1,
+                      dashArray: [5, 5],
+                    ),
                   ),
                   titlesData: FlTitlesData(
                     show: true,
@@ -320,20 +318,13 @@ class HomeScreen extends StatelessWidget {
                     topTitles: AxisTitles(
                       sideTitles: SideTitles(showTitles: false),
                     ),
-
-                    // LABEL BAWAH (HARI) - FIX PENGGUNAAN PADDING
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 30,
                         interval: 1,
                         getTitlesWidget: (value, meta) {
-                          const style = TextStyle(
-                            color: Colors.grey,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          );
-                          String text;
+                          String text = '';
                           switch (value.toInt()) {
                             case 0:
                               text = 'M';
@@ -356,19 +347,21 @@ class HomeScreen extends StatelessWidget {
                             case 6:
                               text = 'S';
                               break;
-                            default:
-                              return Container();
                           }
-                          // Menggunakan Padding sebagai pengganti SideTitleWidget
                           return Padding(
                             padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(text, style: style),
+                            child: Text(
+                              text,
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
                           );
                         },
                       ),
                     ),
-
-                    // LABEL KIRI (ANGKA)
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
@@ -400,14 +393,13 @@ class HomeScreen extends StatelessWidget {
                       isStrokeCapRound: true,
                       dotData: FlDotData(
                         show: true,
-                        getDotPainter: (spot, percent, barData, index) {
-                          return FlDotCirclePainter(
-                            radius: 4,
-                            color: const Color(0xFF558B2F),
-                            strokeWidth: 2,
-                            strokeColor: Colors.white,
-                          );
-                        },
+                        getDotPainter: (spot, percent, barData, index) =>
+                            FlDotCirclePainter(
+                              radius: 4,
+                              color: const Color(0xFF558B2F),
+                              strokeWidth: 2,
+                              strokeColor: Colors.white,
+                            ),
                       ),
                       belowBarData: BarAreaData(show: false),
                     ),
@@ -439,7 +431,6 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-
         provider.transactions.isEmpty
             ? _buildEmptyState()
             : SizedBox(
@@ -500,14 +491,10 @@ class HomeScreen extends StatelessWidget {
                 errorBuilder: (c, e, s) =>
                     const Icon(Icons.pie_chart, size: 30),
               ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AnggaranScreen(),
-                  ),
-                );
-              },
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AnggaranScreen()),
+              ),
             ),
             _buildFeatureButton(
               context: context,
@@ -517,22 +504,16 @@ class HomeScreen extends StatelessWidget {
                 size: 30,
                 color: Colors.black,
               ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AccountsScreen(),
-                  ),
-                );
-              },
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AccountsScreen()),
+              ),
             ),
           ],
         ),
       ],
     );
   }
-
-  // --- WIDGET HELPERS ---
 
   Widget _buildEmptyState() {
     return Container(
