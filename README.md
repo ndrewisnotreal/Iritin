@@ -12,6 +12,8 @@
 
 ---
 
+<img width="2561" height="1345" alt="Mockup Aplikasi - 2 (1)" src="https://github.com/user-attachments/assets/19de116d-97c3-4f5b-8d5a-6ef7b17b3f2e" />
+
 ## 🪙 Tentang Iritin 🪙
 
 **Iritin** adalah aplikasi mobile yang membantu pengguna mengelola keuangan pribadi secara **sederhana, praktis, dan terstruktur**.  
