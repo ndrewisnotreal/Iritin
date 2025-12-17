@@ -1,54 +1,93 @@
 <div align="center">
 
-# 💸 **Iritin: Budgeting & Savings Tracker** 💸 
-### *Aplikasi Pelacak Anggaran & Penghematan Modern untuk Gaya Hidup Minimalis*
+# 💸 Iritin — Budgeting & Savings Tracker  
+### Aplikasi Pelacak Anggaran Modern untuk Gaya Hidup Minimalis
 
-<img src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS-green?style=flat-square">
-<img src="https://img.shields.io/badge/Framework-Flutter-blue?style=flat-square">
-<img src="https://img.shields.io/badge/Language-Dart-02569B?style=flat-square">
-<img src="https://img.shields.io/badge/Status-Development-yellow?style=flat-square">
+<img src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS-4CAF50?style=flat-square">
+<img src="https://img.shields.io/badge/Framework-Flutter-02569B?style=flat-square">
+<img src="https://img.shields.io/badge/Language-Dart-0175C2?style=flat-square">
+<img src="https://img.shields.io/badge/Status-Development-FBC02D?style=flat-square">
 
 </div>
 
 ---
 
-## 🪙 Tentang Aplikasi
-**Iritin** adalah aplikasi mobile **cross-platform** yang membantu pengguna dalam mengelola keuangan pribadi dengan cara yang **mudah, cepat, dan menyenangkan**.  
-Fokus utama aplikasi ini adalah **penghematan**, **pengaturan anggaran**, dan **pencatatan transaksi yang efisien** — lengkap dengan fitur **konversi mata uang real-time** dan **pengingat tagihan otomatis**.
+## 🪙 Tentang Iritin
 
-💬 *"Budget Rapi, Hidup Hepi — bersama Iritin!"*
+**Iritin** adalah aplikasi mobile yang membantu pengguna mengelola keuangan pribadi secara **sederhana, praktis, dan terstruktur**.  
+Aplikasi ini dirancang untuk mendukung pengguna dalam **mengatur anggaran**, **mencatat pemasukan dan pengeluaran**, serta **mengelola saldo dari berbagai akun rekening**.
+
+Dengan tampilan yang modern, bersih, dan mudah digunakan, Iritin mendorong pengguna untuk lebih sadar terhadap kebiasaan finansial dan menerapkan **gaya hidup hemat serta terkontrol**.
+
+> 💬 *“Budget Rapi, Hidup Hepi — bareng Iritin.”*
 
 ---
 
-## 🚀 Fitur-Fitur Unggulan
+## 🚀 Fitur Utama
 
-### 💰 Pencatatan Transaksi Cepat
-Formulir sederhana untuk mencatat pemasukan dan pengeluaran lengkap dengan kategori, jumlah, tanggal, dan deskripsi opsional.
+### 💰 Pencatatan Pemasukan & Pengeluaran
+Pengguna dapat mencatat transaksi keuangan dengan formulir yang jelas dan mudah dipahami.  
+Setiap transaksi mencakup:
+- **Deskripsi transaksi**
+- **Nominal**
+- **Kategori**
+- **Akun rekening**
 
-### 🎯 Pengaturan Anggaran (Budgeting)
-Tetapkan batas pengeluaran bulanan per kategori dengan indikator visual yang menunjukkan persentase penggunaan anggaran.
+Fitur ini membantu pengguna mencatat aktivitas keuangan secara rapi dan konsisten.
+
+---
+
+### 🏦 Manajemen Akun Rekening
+Iritin mendukung pengelolaan lebih dari satu akun rekening, seperti:
+- **Cash**
+- **Dompet Digital**
+- **Kartu Debit**
+
+Pengguna dapat:
+- Menambahkan akun rekening baru
+- Mengisi **nama rekening** dan **saldo awal**
+- Melihat saldo masing-masing rekening
+- Melacak penggunaan terakhir setiap akun
+
+Data rekening akan otomatis terintegrasi dengan transaksi pemasukan dan pengeluaran.
+
+---
 
 ### 📊 Visualisasi Data Keuangan
-Menampilkan data keuangan dengan cara yang menarik:
-- **Bar Chart** → Menampilkan total pengeluaran setiap bulan secara vertikal untuk memudahkan pengguna melihat pola kenaikan atau penurunan pengeluaran dari waktu ke waktu.  
-- **Pie Chart** → Menggambarkan proporsi pengeluaran per kategori (misalnya: Makanan, Transportasi, dan Liburan) dalam bentuk lingkaran. Ini membantu pengguna memahami alokasi keuangan secara visual.
-- **Line Chart** → Menampilkan grafik garis yang menunjukkan perubahan total saldo, pendapatan, atau pengeluaran harian/mingguan/bulanan secara berurutan dari waktu ke waktu.  
+Untuk membantu analisis keuangan, Iritin menyajikan data dalam bentuk grafik:
+- **Pie Chart**  
+  Menampilkan proporsi pengeluaran berdasarkan kategori sehingga pengguna dapat melihat alokasi dana secara visual.
+- **Line Chart**  
+  Menampilkan perkembangan saldo, pemasukan, dan pengeluaran dari waktu ke waktu (harian, mingguan, atau bulanan).
+
+---
 
 ### ⏰ Pengingat Tagihan (Bill Reminder)
-Catat tagihan berulang, dapatkan notifikasi sebelum tanggal jatuh tempo dan bayar tagihan Anda tepat waktu .
+Fitur pengingat tagihan membantu pengguna:
+- Mencatat tagihan rutin
+- Menerima notifikasi sebelum tanggal jatuh tempo
+- Menghindari keterlambatan pembayaran
 
-### 🤝 Split Bill (Pembagian Tagihan)
-Bagi total tagihan secara merata dengan teman dan catat utang-piutang yang dimiliki orang lain kepada Anda dengan mudah.
-
-### 💱 Exchange Currency (Konversi Mata Uang)
-✨ **Fitur Baru!**  
-Konversi nilai mata uang (misalnya USD ke IDR) secara real-time menggunakan data dari **API eksternal**, sebelum transaksi disimpan.
+---
 
 ### 📅 Riwayat & Filter Transaksi
-Telusuri transaksi berdasarkan waktu (harian, mingguan, bulanan) dan kategori sesuai kebutuhan.
+Pengguna dapat menelusuri riwayat transaksi dengan mudah melalui fitur filter berdasarkan:
+- Rentang waktu (harian, mingguan, bulanan)
+- Kategori transaksi
 
-### 🧩 Manajemen Kategori
-Kustomisasi kategori transaksi — tambahkan, ubah, atau hapus sesuai preferensi pribadi.
+---
+
+### 👤 Pengaturan Profil
+Pengguna dapat mengelola informasi akun melalui halaman pengaturan profil, seperti:
+- Mengubah data profil pengguna
+- Menyesuaikan preferensi aplikasi
+
+---
+
+### 🔐 Reset Password
+Fitur reset password disediakan untuk meningkatkan keamanan akun pengguna, memungkinkan pengguna:
+- Mengatur ulang kata sandi jika lupa
+- Mengamankan akses akun dengan lebih baik
 
 ---
 
@@ -56,12 +95,12 @@ Kustomisasi kategori transaksi — tambahkan, ubah, atau hapus sesuai preferensi
 
 <div align="center">
 
-| **Nama** | **NIM** | 
-|-----------|----------|
-| 🧠 Yenni Theresia Zalukhu | 231402012 | 
-| 💻 Nasywa Qaila Azvi | 231402024 | 
-| 🎨 Sarah Agnes Br. Marpaung | 231402057 | 
-| 🧩 Andrew Domara Lumban Batu | 231402107 | 
+| Nama | NIM |
+|------|-----|
+| 🧠 Yenni Theresia Zalukhu | 231402012 |
+| 💻 Nasywa Qaila Azvi | 231402024 |
+| 🎨 Sarah Agnes Br. Marpaung | 231402057 |
+| 🧩 Andrew Domara Lumban Batu | 231402107 |
 | ⚙️ Zulfikri Anwar | 231402110 |
 
 </div>
@@ -73,11 +112,21 @@ Kustomisasi kategori transaksi — tambahkan, ubah, atau hapus sesuai preferensi
 <div align="center">
 
 | Komponen | Teknologi |
-|-----------|------------|
-| **Framework** | Flutter |
-| **Bahasa Pemrograman** | Dart |
-| **IDE** | Visual Studio Code / Android Studio |
-| **API** | Exchange Rate API (Real-Time Currency) |
-| **Database** | SQLite / Hive (Offline Local Storage) |
+|--------|-----------|
+| Framework | :contentReference[oaicite:0]{index=0} |
+| Bahasa Pemrograman | Dart |
+| IDE | Visual Studio Code / Android Studio |
+| Backend & API | :contentReference[oaicite:1]{index=1} |
+| Database | Firebase |
 
 </div>
+
+---
+
+## 📌 Status Pengembangan
+Aplikasi **Iritin** saat ini masih berada dalam tahap **pengembangan**.  
+Pengembangan difokuskan pada penyempurnaan fungsionalitas, pengalaman pengguna, serta stabilitas sistem.
+
+---
+
+✨ *Terima kasih telah menggunakan aplikasi Iritin.*
