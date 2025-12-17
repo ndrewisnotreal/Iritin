@@ -1,6 +1,6 @@
 <div align="center">
 
-# 💸 Iritin — Budgeting & Savings Tracker 💸
+# 💸 Iritin — Budget Rapi, Hidup Hepi 💸
 ### Aplikasi Pelacak Anggaran Modern untuk Gaya Hidup Minimalis
 
 <img src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS-4CAF50?style=flat-square">
