@@ -131,4 +131,7 @@ Pengembangan difokuskan pada penyempurnaan fungsionalitas, pengalaman pengguna, 
 
 ---
 
+## 🔗 Link Figma 🔗
+https://www.figma.com/design/isIOBHbX0a2zQe0DMPfCFu/Kelompok-3_Budget-Tracking?node-id=0-1&p=f&t=C0LABc5G8EvnXmph-0
+
 ✨ *Terima kasih telah menggunakan aplikasi Iritin.* ✨
