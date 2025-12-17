@@ -11,8 +11,7 @@ import 'package:iritin/providers/transaction_provider.dart';
 import 'package:iritin/models/account_provider.dart'; 
 import 'package:iritin/screens/dashboard/analytics_screen.dart';
 import 'package:iritin/screens/dashboard/accounts_screen.dart';
-import 'package:iritin/screens/anggaran/add_anggaran_screen.dart';
-import 'package:iritin/screens/anggaran/anggaran_screen.dart';
+
 
 // --- WARNA & KONSTANTA ---
 const Color primaryGreen = Color(0xFFD1F333);
@@ -485,31 +484,6 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildFeatureButton(
-              context: context,
-              label: "Daftar Kategori",
-              iconWidget: const Icon(
-                Icons.dashboard,
-                size: 30,
-                color: Colors.black,
-              ),
-              onTap: () {},
-            ),
-            _buildFeatureButton(
-              context: context,
-              label: "Atur Anggaran",
-              iconWidget: Image.asset(
-                'assets/icons/icon_anggaran.png',
-                height: 30,
-                width: 30,
-                errorBuilder: (c, e, s) =>
-                    const Icon(Icons.pie_chart, size: 30),
-              ),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AnggaranScreen()),
-              ),
-            ),
             _buildFeatureButton(
               context: context,
               label: "Akun Rekening",

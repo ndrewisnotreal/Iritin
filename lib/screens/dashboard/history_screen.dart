@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:iritin/providers/transaction_provider.dart';
-// Pastikan import ini ada jika Anda punya detail screen, jika belum ada bisa dikomentari dulu
+// Pastikan path ini benar jika Anda sudah membuat detail screen
 import 'package:iritin/screens/dashboard/transaction_detail_screen.dart';
 
 // --- WARNA & KONSTANTA ---
-const Color primaryGreen = Color(0xFFD1F333);
+const Color primaryGreen = Color(0xFFD1F333); 
 const Color accentGreen = Color(0xFFF2FFB0);
 const Color textColor = Color(0xFF2E4053);
 const Color darkGreen = Color(0xFF558B2F);
 
-// FIX: Nama Class harus HistoryScreen (Bukan HomeScreen)
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
@@ -74,14 +73,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
           title: const Text("Filter Tanggal"),
           content: const Text("Hapus filter tanggal saat ini?"),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text("Ganti"),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text("Hapus Filter", style: TextStyle(color: Colors.red)),
-            ),
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text("Ganti")),
+            TextButton(onPressed: () => Navigator.pop(c, true), child: const Text("Hapus Filter", style: TextStyle(color: Colors.red))),
           ],
         ),
       );
@@ -120,12 +113,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // FIX: Gunakan Consumer atau context.watch untuk TransactionProvider
     final provider = context.watch<TransactionProvider>();
     final int targetType = _selectedTab == 0 ? 1 : 0;
     final categories = _categoryFilterNames;
     final selectedCategoryName = categories[_selectedCategoryIndex];
 
+    // Filter Data
     final currentList = provider.transactions.where((item) {
       final matchesType = item['type'] == targetType;
       final matchesCategory = selectedCategoryName == "Semua" || item['category'] == selectedCategoryName;
@@ -145,6 +138,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
       }
       return matchesType && matchesCategory && matchesSearch && matchesDate;
     }).toList();
+
+    // --- SORTING: TERBARU DI ATAS ---
+    // Karena list `provider.transactions` biasanya urut dari terlama ke terbaru (FIFO di list.add),
+    // kita perlu membalik urutannya untuk tampilan LIFO (Stack).
+    final reversedList = currentList.reversed.toList(); 
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -206,17 +204,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 _buildSearchAndTools(),
                 const SizedBox(height: 16),
                 
-                // List Items
+                // List Items (Gunakan reversedList)
                 Expanded(
-                  child: currentList.isEmpty
+                  child: reversedList.isEmpty
                       ? _buildEmptyState()
                       : ListView.separated(
                           padding: const EdgeInsets.all(20),
-                          itemCount: currentList.length,
+                          itemCount: reversedList.length,
                           separatorBuilder: (c, i) => const SizedBox(height: 16),
                           itemBuilder: (context, index) {
-                            // Reverse index agar yang terbaru muncul di atas (opsional)
-                            final item = currentList[currentList.length - 1 - index];
+                            final item = reversedList[index]; // Ambil dari list yang sudah dibalik
                             return _buildTransactionItem(item);
                           },
                         ),
@@ -228,6 +225,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
     );
   }
+
+  // --- WIDGET HELPER --- (Tidak ada perubahan signifikan di sini)
 
   Widget _buildTabButton(String text, int index) {
     bool isSelected = _selectedTab == index;
@@ -343,9 +342,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     return GestureDetector(
       onTap: () {
-        // --- NAVIGASI KE DETAIL ---
-        // Pastikan Anda sudah import DashboardProvider jika menggunakan openSubPage
-        // Atau gunakan Navigator.push biasa
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => TransactionDetailScreen(data: item)),
